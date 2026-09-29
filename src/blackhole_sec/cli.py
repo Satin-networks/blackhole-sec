@@ -80,6 +80,7 @@ def main() -> None:
 
 # check
 @main.command(
+    "check",
     context_settings=HELP_NAMES,
     epilog="""\b
 Examples:
@@ -156,6 +157,7 @@ def check_cmd(urls, file_, as_json, as_csv, explain, threshold):
 
 # vault
 @main.group(
+    "vault",
     context_settings=HELP_NAMES,
     epilog="""\b
 Examples:
@@ -367,6 +369,7 @@ def vault_gen(length, words):
 
 # shred
 @main.group(
+    "shred",
     context_settings=HELP_NAMES,
     epilog="""\b
 Examples:
@@ -472,6 +475,7 @@ def shred_shred(files, passes, yes):
 
 # bundle
 @main.group(
+    "bundle",
     context_settings=HELP_NAMES,
     epilog="""\b
 Examples:
@@ -554,6 +558,7 @@ def bundle_extract(bundle, dest, password, keyfile):
 
 # intake
 @main.command(
+    "intake",
     context_settings=HELP_NAMES,
     epilog="""\b
 Example:
@@ -573,6 +578,7 @@ def intake_cmd(url, file):
 
 # upgrade
 @main.command(
+    "upgrade",
     context_settings=HELP_NAMES,
     epilog="""\b
 Examples:
