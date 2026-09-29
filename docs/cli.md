@@ -1,0 +1,65 @@
+# Command reference
+
+Every command documents itself. Whatever is here, `blackhole COMMAND -h`
+says it better, since it is generated from the same code.
+
+## Conventions
+
+- `-h` works everywhere as a short `--help`.
+- Secrets are typed into hidden prompts, never passed as flags (so they
+  stay out of shell history).
+- Commands that inspect only (`check`, `shred analyze`, `shred verify`,
+  `vault list`, `vault audit`) never change anything.
+
+## blackhole check [URL]...
+
+Score links without fetching them. Defanged output, JSON/CSV modes,
+exit code 2 when anything hits `--threshold` (default 50).
+
+```bash
+blackhole check "http://secure-paypal-login.tk/free-nitro"
+blackhole check -f urls.txt --json > report.json
+blackhole check suspect.tk/x --explain
+```
+
+## blackhole vault ...
+
+`init` creates the vault, `set`/`get` store and fetch by SERVICE name,
+`list` shows names, `audit` scores password health, `gen` prints a fresh
+secret without storing it.
+
+```bash
+blackhole vault init --vault ~/.blackhole/vault.db
+blackhole vault set github --username alice --generate 24
+blackhole vault get github --show
+blackhole vault audit
+```
+
+`--vault PATH` on any subcommand points at a different vault file.
+
+## blackhole shred ...
+
+`analyze` scores metadata, `clean` writes `*.cleaned` copies, `verify`
+exits 0/1 for scripts, `shred` deletes for real.
+
+```bash
+blackhole shred analyze photo.jpg
+blackhole shred clean *.jpg --out-dir ./clean --yes
+blackhole shred verify photo.cleaned.jpg; echo $?
+blackhole shred shred secret.txt --passes 7 --yes
+```
+
+## blackhole bundle ...
+
+`create` packs SRC_DIR into OUT_FILE (`.bhb`), `extract` unpacks it.
+Password mode prompts; `--no-password` writes an OUT_FILE.key instead.
+
+```bash
+blackhole bundle create ./photos ./photos.bhb
+blackhole bundle extract ./photos.bhb ./restored --password
+```
+
+## blackhole intake URL FILE
+
+One-shot triage for a DM with a link and an attachment: prints the link
+verdict plus the file metadata verdict.
