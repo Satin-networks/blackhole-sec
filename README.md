@@ -6,6 +6,9 @@ directories into encrypted `.bhb` files instead of zip.
 
 No accounts. No network calls. Nothing leaves your machine.
 
+Full write-ups for each tool live here:
+**https://satin-networks.github.io/blackhole-sec/**
+
 ```bash
 pip install blackhole-sec
 ```
