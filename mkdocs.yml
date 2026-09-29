@@ -1,0 +1,45 @@
+site_name: blackhole-sec
+site_description: Offline opsec toolkit - phishing checks, encrypted vault, metadata shredder, secure .bhb archives.
+site_author: Satin Networks
+repo_url: https://github.com/satin-networks/blackhole-sec
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to light mode
+    - scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Checking links: check.md
+  - Vault: vault.md
+  - Shredding files: shred.md
+  - Bundles (.bhb): bundle.md
+  - Everyday recipes: recipes.md
+  - Security notes: security.md
+  - Changelog: changelog.md

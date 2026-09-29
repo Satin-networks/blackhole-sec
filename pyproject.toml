@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blackhole-sec"
+version = "0.1.0"
+description = "Offline phishing checks, encrypted vault, metadata shredder and secure .bhb archives."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+authors = [{ name = "Satin Networks" }]
+keywords = ["security", "opsec", "phishing", "vault", "shredder", "privacy", "offline"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Security",
+  "Topic :: Security :: Cryptography",
+]
+dependencies = [
+  "click>=8.1",
+  "rich>=13.0",
+  "cryptography>=42.0",
+  "argon2-cffi>=23.0",
+  "Pillow>=10.0",
+  "pyyaml>=6.0",
+  "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.4", "build", "twine"]
+
+[project.scripts]
+blackhole = "blackhole_sec.cli:main"
+blackhole-sec = "blackhole_sec.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/satin-networks/blackhole-sec"
+Repository = "https://github.com/satin-networks/blackhole-sec"
+Issues = "https://github.com/satin-networks/blackhole-sec/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+ignore = ["BLE001", "S110", "S101", "PLR2004", "EM101", "EM102", "TRY003"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

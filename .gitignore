@@ -1,0 +1,24 @@
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+
+# local secrets - never commit these
+*.db
+*.bhb
+*.key
+.blackhole/
+.env
+
+# os / editors
+.DS_Store
+.idea/
+.vscode/
