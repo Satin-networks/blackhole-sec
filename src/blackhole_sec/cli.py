@@ -13,10 +13,11 @@ from pathlib import Path
 
 import click
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from . import __version__
-from .bundle import create_bundle, extract_bundle
+from .bundle import create_bundle, extract_bundle, list_bundle, read_bundle
 from .check.features import analyze_url
 from .check.mitre import mitre_for
 from .check.report import defang, format_text, to_dict
@@ -51,7 +52,8 @@ class SuggestGroup(click.Group):
         except click.NoSuchOption as e:
             owner = self._find_flag_owner(e.option_name)
             if owner:
-                e.message += f". Did you mean '{ctx.command_path} {owner} {e.option_name} ...'?"
+                base = e.message.rstrip(".")
+                e.message = f"{base}. Did you mean '{ctx.command_path} {owner} {e.option_name} ...'?"
             raise
 
     def resolve_command(self, ctx, args):
@@ -115,6 +117,33 @@ def _latest_pypi_version(timeout: int = 10) -> str:
         return json.load(r)["info"]["version"]
 
 
+def _score_bar(score: int, width: int = 20) -> str:
+    filled = max(0, min(width, round(score / 100 * width)))
+    return "#" * filled + "-" * (width - filled)
+
+
+def _sev_color(weight: int) -> str:
+    if weight >= 15:
+        return "red"
+    if weight >= 8:
+        return "yellow"
+    return "dim"
+
+
+def _score_color(score: int) -> str:
+    if score >= 80:
+        return "red"
+    if score >= 50:
+        return "yellow"
+    return "green"
+
+
+def _disable_color(ctx, param, value):
+    if value:
+        console.no_color = True
+    return value
+
+
 @contextmanager
 def _fs(action: str):
     """Turn filesystem failures into one-line errors instead of tracebacks."""
@@ -156,6 +185,14 @@ def _need_writable_dir(path: str | Path, what: str) -> None:
 
 @click.group(cls=SuggestGroup, context_settings=HELP_NAMES, epilog=MAIN_EPILOG)
 @click.version_option(_installed_version(), prog_name="blackhole-sec")
+@click.option(
+    "--no-color",
+    is_flag=True,
+    is_eager=True,
+    expose_value=False,
+    callback=_disable_color,
+    help="Plain output, no ANSI colors. Also honored: NO_COLOR env, pipes.",
+)
 def main() -> None:
     """Offline opsec toolkit. Nothing leaves your machine."""
 
@@ -231,12 +268,14 @@ def check_cmd(urls, file_, as_json, as_csv, explain, threshold):
     else:
         for i, s, v, c, f in results:
             color = "green" if v == "BENIGN" else ("yellow" if v == "SUSPICIOUS" else "red")
-            console.print(f"[bold {color}]{v} {s}/100 ({c})[/] {defang(i['normalized'])}")
+            bar = _score_bar(s)
+            console.print(f"[bold {color}]{v} {s}/100 ({c})[/] [{color}]{bar}[/] {escape(defang(i['normalized']))}", highlight=False)
             for feat in f:
-                console.print(f"  +{feat.weight:2d} {feat.name}: {feat.evidence}")
+                fc = _sev_color(feat.weight)
+                console.print(f"  [{fc}]+{feat.weight:2d} {feat.name}[/]: {escape(feat.evidence)}", highlight=False)
                 if explain:
-                    console.print(f"       [dim]{feat.explanation} [{feat.mitre or 'no MITRE tag'}][/]")
-            console.print(f"  [dim]MITRE: {', '.join(mitre_for([x.name for x in f])) or 'none'}[/]")
+                    console.print(f"       [dim]{escape(feat.explanation)} [{feat.mitre or 'no MITRE tag'}][/]", highlight=False)
+            console.print(f"  [dim]MITRE: {', '.join(mitre_for([x.name for x in f])) or 'none'}[/]", highlight=False)
     worst = max(s for _, s, _, _, _ in results)
     sys.exit(2 if worst >= threshold else 0)
 
@@ -325,6 +364,8 @@ def vault_set(service, vault, username, generate, passphrase):
     Without --generate/--passphrase you are prompted once for the entry
     password (hidden input).
     """
+    if generate and passphrase:
+        raise click.UsageError("use either --generate or --passphrase, not both")
     v = _open_vault(vault)
     if generate:
         pw = generate_password(generate)
@@ -341,7 +382,7 @@ def vault_set(service, vault, username, generate, passphrase):
     with _fs(f"could not save entry in {v.path}"):
         v.set(service, username, pw, notes)
     if generate or passphrase:
-        console.print(f"[green]saved[/] {service}  generated secret: {pw}")
+        console.print(f"[green]saved[/] {service}  generated secret: {pw}", markup=False, highlight=False)
     else:
         console.print(f"[green]saved[/] {service}")
     v.lock()
@@ -366,8 +407,9 @@ Examples:
 def vault_get(service, vault, show):
     """Show or copy the entry for SERVICE.
 
-    Default copies the password to the clipboard (cleared after ~30s);
-    with --show it is printed, which is better for piping into scripts.
+    Default copies the password to the clipboard (it stays until you
+    overwrite it, so clear it when done); with --show it is printed,
+    which is better for piping into scripts.
     """
     v = _open_vault(vault)
     e = v.get(service)
@@ -375,21 +417,43 @@ def vault_get(service, vault, show):
         v.lock()
         raise click.ClickException(f"no entry for '{service}' (see 'blackhole vault list')")
     if show:
-        console.print(f"{e.service}  user={e.username}  pass={e.password}")
+        console.print(f"{e.service}  user={e.username}  pass={e.password}", markup=False, highlight=False)
     else:
-        try:
-            import tkinter
-
-            r = tkinter.Tk()
-            r.withdraw()
-            r.clipboard_clear()
-            r.clipboard_append(e.password)
-            r.update()
-            console.print("[green]copied to clipboard[/] - clear it when you're done")
-            r.after(30000, lambda: (r.clipboard_clear(), r.update(), r.destroy()))
-        except Exception:
+        if _to_clipboard(e.password):
+            console.print("[green]copied to clipboard[/] - overwrite or clear it when done")
+        else:
             console.print("[yellow]clipboard unavailable here; rerun with --show[/]")
     v.lock()
+
+
+def _to_clipboard(text: str) -> bool:
+    """Copy text so it survives this process exiting. Best effort."""
+    import shutil
+
+    tools = (
+        ("wl-copy", ["wl-copy"]),
+        ("xclip", ["xclip", "-selection", "clipboard"]),
+        ("xsel", ["xsel", "--clipboard", "--input"]),
+    )
+    for name, args in tools:
+        if shutil.which(name):
+            try:
+                subprocess.run(args, input=text.encode(), check=True, timeout=10)
+                return True
+            except (OSError, subprocess.SubprocessError):
+                continue
+    try:
+        import tkinter
+
+        r = tkinter.Tk()
+        r.withdraw()
+        r.clipboard_clear()
+        r.clipboard_append(text)
+        r.update()
+        r.destroy()
+        return True
+    except Exception:
+        return False
 
 
 @vault_grp.command(
@@ -405,7 +469,7 @@ def vault_list(vault):
     """List service names in the vault (usernames shown, passwords never)."""
     v = _open_vault(vault)
     rows = [(e.service, e.username, str(e.updated)) for s in v.list_services() for e in [v.get(s)] if e]
-    t = Table("service", "username", "updated")
+    t = Table("service", "username", "updated", title=f"vault: {v.path}", show_lines=False)
     for row in rows:
         t.add_row(*row)
     console.print(t)
@@ -425,7 +489,8 @@ def vault_audit(vault):
     """Score password health: reused, short (<12 chars), and stale (>1yr)."""
     v = _open_vault(vault)
     a = v.audit()
-    console.print(f"Score: {a['score']}/100  entries={a['total']}")
+    color = "green" if a["score"] >= 90 else ("yellow" if a["score"] >= 60 else "red")
+    console.print(f"[{color}]Score: {a['score']}/100  entries={a['total']}[/] [{color}]{_score_bar(a['score'])}[/]")
     if a["reused"]:
         console.print(f"[red]reused passwords:[/] {a['reused']}")
     if a["weak"]:
@@ -451,9 +516,62 @@ Examples:
 def vault_gen(length, words):
     """Print a fresh secret without storing anything. Uses os-provided randomness."""
     try:
-        console.print(generate_passphrase(words) if words else generate_password(length))
+        secret = generate_passphrase(words) if words else generate_password(length)
     except ValueError as e:
         raise click.ClickException(str(e)) from e
+    console.print(secret, markup=False, highlight=False)
+
+
+@vault_grp.command(
+    "rm",
+    context_settings=HELP_NAMES,
+    epilog="""\b
+Example:
+  blackhole vault rm old-forum --yes
+""",
+)
+@click.argument("service", metavar="SERVICE")
+@click.option("--vault", default=DEFAULT_VAULT, show_default=True, metavar="PATH", help="Vault file to open.")
+@click.option("--yes", is_flag=True, help="Skip the confirmation prompt.")
+def vault_rm(service, vault, yes):
+    """Delete the entry for SERVICE. This cannot be undone."""
+    v = _open_vault(vault)
+    if v.get(service) is None:
+        v.lock()
+        raise click.ClickException(f"no entry for '{service}' (see 'blackhole vault list')")
+    if not yes and not click.confirm(f"Delete '{service}'?"):
+        v.lock()
+        return
+    with _fs(f"could not update vault {v.path}"):
+        v.remove(service)
+    console.print(f"[red]deleted[/] {service}")
+    v.lock()
+
+
+@vault_grp.command(
+    "passwd",
+    context_settings=HELP_NAMES,
+    epilog="""\b
+Example:
+  blackhole vault passwd
+""",
+)
+@click.option("--vault", default=DEFAULT_VAULT, show_default=True, metavar="PATH", help="Vault file to open.")
+def vault_passwd(vault):
+    """Change the master password. Every entry is re-encrypted under the new one."""
+    v = _open_vault(vault)
+    m1 = _master("New master password: ")
+    m2 = _master("Confirm: ")
+    if m1 != m2:
+        v.lock()
+        raise click.ClickException("passwords differ, try again")
+    if not m1:
+        v.lock()
+        raise click.ClickException("empty master password, try again")
+    with _fs(f"could not update vault {v.path}"):
+        v.change_master(m1)
+    console.print("[green]master password changed[/]")
+    v.lock()
 
 
 # shred
@@ -490,8 +608,9 @@ def shred_analyze(files):
     for f in files:
         with _fs(f"could not read {f}"):
             info = analyze_file(f)
-        color = "green" if info["score"] >= 80 else ("yellow" if info["score"] >= 50 else "red")
-        console.print(f"[bold {color}]{info['score']}/100[/] {f} tags={info.get('sensitive', [])}")
+        color = _score_color(info["score"])
+        bar = _score_bar(info["score"])
+        console.print(f"[bold {color}]{info['score']}/100[/] [{color}]{bar}[/] {f} tags={info.get('sensitive', [])}", highlight=False)
 
 
 @shred_grp.command(
@@ -536,7 +655,8 @@ def shred_verify(files):
     for f in files:
         with _fs(f"could not read {f}"):
             ok, info = verify_clean(f)
-        console.print(f"{'PASS' if ok else 'FAIL'} {f} sensitive={info.get('sensitive', [])}")
+        mark = "[green]PASS[/]" if ok else "[red]FAIL[/]"
+        console.print(f"{mark} {f} sensitive={info.get('sensitive', [])}")
         bad += not ok
     sys.exit(1 if bad else 0)
 
@@ -655,6 +775,64 @@ def bundle_extract(bundle, dest, password, keyfile):
     console.print(f"[green]extracted {len(names)} files[/] -> {dest}")
 
 
+def _bundle_secret(password: bool, keyfile: str | None) -> tuple[str | None, str | None]:
+    if password and keyfile:
+        raise click.UsageError("use either --password or --keyfile, not both")
+    return (_master("Bundle password: ") if password else None), keyfile
+
+
+@bundle_grp.command(
+    "list",
+    context_settings=HELP_NAMES,
+    epilog="""\b
+Examples:
+  blackhole bundle list ./photos.bhb --password
+  blackhole bundle list ./photos.bhb
+""",
+)
+@click.argument("bundle", metavar="BUNDLE_FILE")
+@click.option("--password", is_flag=True, help="Prompt for the bundle password (password-mode bundles).")
+@click.option("--keyfile", default=None, metavar="PATH", help="Key file for keyfile-mode bundles (defaults to BUNDLE_FILE.key).")
+def bundle_list(bundle, password, keyfile):
+    """Show what's inside BUNDLE_FILE without extracting anything."""
+    pw, kf = _bundle_secret(password, keyfile)
+    try:
+        with _fs(f"could not read {bundle}"):
+            entries = list_bundle(bundle, pw, kf)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+    t = Table("path", "bytes", title=f"bundle: {bundle}")
+    total = 0
+    for name, size in entries:
+        t.add_row(name, str(size))
+        total += size
+    console.print(t)
+    console.print(f"[dim]{len(entries)} files, {total} bytes uncompressed[/]")
+
+
+@bundle_grp.command(
+    "verify",
+    context_settings=HELP_NAMES,
+    epilog="""\b
+Example:
+  blackhole bundle verify ./photos.bhb --password; echo $?
+""",
+)
+@click.argument("bundle", metavar="BUNDLE_FILE")
+@click.option("--password", is_flag=True, help="Prompt for the bundle password (password-mode bundles).")
+@click.option("--keyfile", default=None, metavar="PATH", help="Key file for keyfile-mode bundles (defaults to BUNDLE_FILE.key).")
+def bundle_verify(bundle, password, keyfile):
+    """Check a bundle opens with this password/key. Exit 0 yes, 1 no."""
+    pw, kf = _bundle_secret(password, keyfile)
+    try:
+        with _fs(f"could not read {bundle}"):
+            data = read_bundle(bundle, pw, kf)
+    except ValueError as e:
+        console.print(f"[red]FAIL[/] {bundle}: {e}")
+        sys.exit(1)
+    console.print(f"[green]OK[/] {bundle} ({len(data)} bytes of tar.gz, auth passed)")
+
+
 # intake
 @main.command(
     "intake",
@@ -662,18 +840,28 @@ def bundle_extract(bundle, dest, password, keyfile):
     epilog="""\b
 Example:
   blackhole intake "http://evil.tk/login" ./photo.jpg
+  blackhole intake "http://evil.tk/login" ./photo.jpg --json
 """,
 )
 @click.argument("url", metavar="URL")
 @click.argument("file", metavar="FILE", type=click.Path(exists=True))
-def intake_cmd(url, file):
+@click.option("--json", "as_json", is_flag=True, help="Print the link verdict and file verdict as one JSON object.")
+def intake_cmd(url, file, as_json):
     """Score a link and check a file in one go. For triaging a DM with an attachment."""
     info, feats = analyze_url(url)
     score, verdict, conf, fired = score_features(feats)
     with _fs(f"could not read {file}"):
         ok, minfo = verify_clean(file)
+    if as_json:
+        click.echo(json.dumps({
+            "url": to_dict(info, score, verdict, conf, fired),
+            "file": {"file": str(file), "clean": ok, "score": minfo["score"],
+                     "sensitive": minfo.get("sensitive", [])},
+        }, indent=2))
+        return
     console.print(format_text(info, score, verdict, conf, fired))
-    console.print(f"File {file}: {'CLEAN' if ok else 'HAS-METADATA'} score={minfo['score']} sensitive={minfo.get('sensitive', [])}")
+    mark = "[green]CLEAN[/]" if ok else "[yellow]HAS-METADATA[/]"
+    console.print(f"File {file}: {mark} score={minfo['score']} sensitive={minfo.get('sensitive', [])}")
 
 
 # upgrade

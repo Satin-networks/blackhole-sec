@@ -29,6 +29,16 @@ blackhole bundle extract ./photos.bhb ./restored --keyfile ./photos.bhb.key
 A wrong password, a wrong keyfile, or a tampered file just refuses to
 open. There is no partial extract.
 
+## Peeking without unpacking
+
+```bash
+blackhole bundle list ./photos.bhb --password
+blackhole bundle verify ./photos.bhb --password; echo $?
+```
+
+`list` prints every file with its size. `verify` only checks the
+password/key and authenticity: exit 0 opens, 1 does not.
+
 ## How it compares to zip
 
 | Problem with zip | What .bhb does |

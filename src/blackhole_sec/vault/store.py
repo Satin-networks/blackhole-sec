@@ -145,7 +145,7 @@ class Vault:
         self._save()
 
     def audit(self) -> dict:
-        """Password health: reuse, weak, old. Beats single-purpose managers on transparency."""
+        """Password health: what is reused, weak, or untouched for over a year."""
         self._require_open()
         pw_map: dict[str, list[str]] = {}
         weak, old = [], []

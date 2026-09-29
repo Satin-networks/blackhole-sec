@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "blackhole-sec"
-version = "0.1.1"
+version = "0.2.0"
 description = "Offline phishing checks, encrypted vault, metadata shredder and secure .bhb archives."
 readme = "README.md"
 license = { text = "MIT" }
@@ -28,8 +28,6 @@ dependencies = [
   "cryptography>=42.0",
   "argon2-cffi>=23.0",
   "Pillow>=10.0",
-  "pyyaml>=6.0",
-  "pydantic>=2.0",
 ]
 
 [project.optional-dependencies]

@@ -6,10 +6,13 @@ says it better, since it is generated from the same code.
 ## Conventions
 
 - `-h` works everywhere as a short `--help`.
+- `--no-color` on any command (or the NO_COLOR env var) disables colors.
+  `--json` and `--csv` are always plain.
 - Secrets are typed into hidden prompts, never passed as flags (so they
   stay out of shell history).
 - Commands that inspect only (`check`, `shred analyze`, `shred verify`,
   `vault list`, `vault audit`) never change anything.
+- Filesystem failures print one line naming the file, never a traceback.
 
 ## blackhole check [URL]...
 
@@ -32,7 +35,8 @@ secret without storing it.
 blackhole vault init --vault ~/.blackhole/vault.db
 blackhole vault set github --username alice --generate 24
 blackhole vault get github --show
-blackhole vault audit
+blackhole vault rm old-forum --yes
+blackhole vault passwd
 ```
 
 `--vault PATH` on any subcommand points at a different vault file.
@@ -51,18 +55,23 @@ blackhole shred shred secret.txt --passes 7 --yes
 
 ## blackhole bundle ...
 
-`create` packs SRC_DIR into OUT_FILE (`.bhb`), `extract` unpacks it.
-Password mode prompts; `--no-password` writes an OUT_FILE.key instead.
+`create` packs SRC_DIR into OUT_FILE (`.bhb`), `extract` unpacks it,
+`list` shows contents without extracting, `verify` checks the
+password/key with exit 0/1. Password mode prompts; `--no-password`
+writes an OUT_FILE.key instead.
 
 ```bash
 blackhole bundle create ./photos ./photos.bhb
 blackhole bundle extract ./photos.bhb ./restored --password
+blackhole bundle list ./photos.bhb --password
+blackhole bundle verify ./photos.bhb --password; echo $?
 ```
 
-## blackhole intake URL FILE
+## blackhole intake URL FILE [--json]
 
 One-shot triage for a DM with a link and an attachment: prints the link
-verdict plus the file metadata verdict.
+verdict plus the file metadata verdict. `--json` merges both into one
+machine-readable object.
 
 ## blackhole upgrade [--check]
 

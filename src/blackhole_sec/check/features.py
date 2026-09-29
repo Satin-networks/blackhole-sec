@@ -124,9 +124,12 @@ def analyze_url(raw_url: str) -> tuple[dict, list[FeatureResult]]:
     url = normalize_url(raw_url)
     try:
         p = urlparse(url)
-    except Exception:
+    except ValueError:
         p = urlparse("http://invalid/")
-    host = (p.hostname or "").lower()
+    try:
+        host = (p.hostname or "").lower()
+    except ValueError:
+        host = ""
     path = p.path or ""
     query = p.query or ""
     full = url
@@ -147,10 +150,7 @@ def analyze_url(raw_url: str) -> tuple[dict, list[FeatureResult]]:
     add("punycode", 16, "xn--" in host, host, "T1027",
         "Punycode (xn--) can hide lookalike internationalized domains.")
     # 4 non-ascii / homoglyph
-    try:
-        non_ascii = any(ord(c) > 127 for c in host)
-    except Exception:
-        non_ascii = False
+    non_ascii = any(ord(c) > 127 for c in host)
     add("homoglyph", 18, non_ascii, host, "T1566.002",
         "Non-ASCII characters enable homograph attacks (e.g. Cyrillic 'а' for 'a').")
     # 5 shortener
@@ -259,7 +259,11 @@ def analyze_url(raw_url: str) -> tuple[dict, list[FeatureResult]]:
     add("digit_heavy", 4, len(host) > 0 and digits / max(1, len(host)) > 0.3, host, "",
         "Digit-heavy domain is atypical for legitimate brands.")
     # 25 userinfo present
-    add("userinfo", 8, bool(p.username), "user@", "", "Credentials embedded in URL.")
+    try:
+        has_user = bool(p.username)
+    except ValueError:
+        has_user = False
+    add("userinfo", 8, has_user, "user@", "", "Credentials embedded in URL.")
 
     info = {
         "input": raw_url[:MAX_URL_LEN],

@@ -54,6 +54,8 @@ blackhole vault get github --show
 blackhole vault list
 blackhole vault audit
 blackhole vault gen --length 24
+blackhole vault rm old-forum --yes
+blackhole vault passwd
 ```
 
 The file is chmod 0600. Every command locks when it finishes. `audit`
@@ -85,6 +87,8 @@ Filenames, sizes, everything is hidden. Only blackhole opens it.
 blackhole bundle create ./photos ./photos.bhb
 blackhole bundle create ./photos ./photos.bhb --no-password  # writes photos.bhb.key
 blackhole bundle extract ./photos.bhb ./restored --password
+blackhole bundle list ./photos.bhb --password
+blackhole bundle verify ./photos.bhb --password; echo $?
 ```
 
 Wrong password or a tampered file just refuses to open. Extraction rejects
@@ -92,7 +96,11 @@ absolute paths, `..`, and symlinks.
 
 ```bash
 blackhole intake "http://evil.tk/login" ./photo.jpg  # link + file in one go
+blackhole intake "http://evil.tk/login" ./photo.jpg --json
 ```
+
+Colors are on when your terminal supports them and off when piped.
+Force it either way with `--no-color` or the NO_COLOR env var.
 
 ## Install
 
@@ -112,8 +120,7 @@ From source:
 pip install -e ".[dev]"
 ```
 
-Depends on click, rich, cryptography, argon2-cffi, Pillow, pyyaml and
-pydantic. That's it.
+Depends on click, rich, cryptography, argon2-cffi and Pillow. That's it.
 
 Upgrade later with `blackhole upgrade` (or the scripts/update.sh
 one-liner). Remove with the scripts/uninstall.sh one-liner; your vault

@@ -24,6 +24,12 @@ blackhole vault set wifi --passphrase 5
 # read it back
 blackhole vault get github --show
 
+# delete one you don't need (asks first unless --yes)
+blackhole vault rm old-forum
+
+# change the master (re-encrypts everything)
+blackhole vault passwd
+
 # copy without printing (best-effort clipboard, clears after ~30s)
 blackhole vault get github
 

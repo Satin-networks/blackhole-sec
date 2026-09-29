@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0
+
+- Color throughout: severity-colored signals, score bars, graded audit
+  scores. `--json`/`--csv` stay plain. `--no-color` (or NO_COLOR, or a
+  pipe) turns it off.
+- New: `vault rm`, `vault passwd`, `bundle list`, `bundle verify`,
+  `intake --json`.
+- Fixed: bundles keep empty directories; huge directories spill to disk
+  instead of RAM; corrupt bundles say so instead of tracebacking;
+  malformed URLs can't crash `check`; clipboard copies use persistent
+  tools first and no longer promise an auto-clear that never happened.
+- Leaner install: dropped two unused dependencies.
+
 ## 0.1.1
 
 - Every command documents its arguments with examples (`COMMAND -h`,

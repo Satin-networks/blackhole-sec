@@ -26,6 +26,8 @@ def test_every_command_has_help():
         ["vault", "list", "--help"],
         ["vault", "audit", "--help"],
         ["vault", "gen", "--help"],
+        ["vault", "rm", "--help"],
+        ["vault", "passwd", "--help"],
         ["shred", "--help"],
         ["shred", "analyze", "--help"],
         ["shred", "clean", "--help"],
@@ -34,6 +36,8 @@ def test_every_command_has_help():
         ["bundle", "--help"],
         ["bundle", "create", "--help"],
         ["bundle", "extract", "--help"],
+        ["bundle", "list", "--help"],
+        ["bundle", "verify", "--help"],
         ["intake", "--help"],
         ["upgrade", "--help"],
     ]
@@ -199,6 +203,105 @@ def test_vault_missing_hints_init(tmp_path):
     assert r.exit_code != 0
     assert "vault init" in r.output
     assert "Traceback" not in r.output
+
+
+def test_vault_rm_missing_is_clean(tmp_path):
+    r = runner.invoke(main, ["vault", "rm", "ghost", "--vault", str(tmp_path / "nope.db")])
+    assert r.exit_code != 0
+    assert "vault init" in r.output
+
+
+def test_vault_set_conflicting_flags(tmp_path):
+    r = runner.invoke(main, ["vault", "set", "s", "--generate", "16", "--passphrase", "5",
+                             "--vault", str(tmp_path / "v.db")])
+    assert r.exit_code != 0
+    assert "not both" in r.output
+
+
+def test_bundle_list_and_verify_keyfile(tmp_path):
+    from blackhole_sec.bundle import create_bundle
+
+    src = tmp_path / "d"
+    (src / "sub").mkdir(parents=True)
+    (src / "a.txt").write_text("hello")
+    bhb = tmp_path / "k.bhb"
+    create_bundle(src, bhb, password=None)
+    r = runner.invoke(main, ["bundle", "list", str(bhb)])
+    assert r.exit_code == 0, r.output
+    assert "a.txt" in r.output
+    r = runner.invoke(main, ["bundle", "verify", str(bhb)])
+    assert r.exit_code == 0, r.output
+    assert "OK" in r.output
+
+
+def test_bundle_verify_bad_keyfile_fails_clean(tmp_path):
+    from blackhole_sec.bundle import create_bundle
+
+    src = tmp_path / "d"
+    src.mkdir()
+    (src / "s.txt").write_text("s")
+    bhb = tmp_path / "c.bhb"
+    create_bundle(src, bhb, password=None)
+    kf = tmp_path / "bad.key"
+    kf.write_text("not-a-real-key")
+    r = runner.invoke(main, ["bundle", "verify", str(bhb), "--keyfile", str(kf)])
+    assert r.exit_code == 1
+    assert "FAIL" in r.output
+    assert "Traceback" not in r.output
+
+
+def test_bundle_empty_dirs_survive(tmp_path):
+    from blackhole_sec.bundle import create_bundle, extract_bundle
+
+    src = tmp_path / "d"
+    (src / "empty" / "nested").mkdir(parents=True)
+    (src / "f.txt").write_text("x")
+    bhb = tmp_path / "e.bhb"
+    create_bundle(src, bhb, password="pw-12345")
+    out = tmp_path / "out"
+    extract_bundle(bhb, out, password="pw-12345")
+    assert (out / "empty" / "nested").is_dir()
+    assert (out / "f.txt").read_text() == "x"
+
+
+def test_bundle_tiny_garbage_is_value_error(tmp_path):
+    from blackhole_sec.bundle import read_bundle
+
+    bad = tmp_path / "bad.bhb"
+    bad.write_bytes(b"\x00\x01\x02")
+    try:
+        read_bundle(bad, password="x")
+        assert False, "should have raised"
+    except ValueError:
+        pass
+
+
+def test_intake_json(tmp_path):
+    img = tmp_path / "p.png"
+    Image.new("RGB", (8, 8), "blue").save(img)
+    r = runner.invoke(main, ["intake", "https://www.google.com", str(img), "--json"])
+    assert r.exit_code == 0, r.output
+    d = json.loads(r.output)
+    assert d["url"]["verdict"] == "BENIGN" and d["file"]["clean"] is True
+
+
+def test_score_bar_and_no_color():
+    from blackhole_sec.cli import _score_bar
+
+    assert _score_bar(0) == "-" * 20
+    assert _score_bar(100) == "#" * 20
+    assert _score_bar(50) == "#" * 10 + "-" * 10
+    r = runner.invoke(main, ["--no-color", "check", "https://www.google.com"])
+    assert r.exit_code == 0
+    assert "\x1b[" not in r.output
+
+
+def test_nasty_urls_never_crash():
+    from blackhole_sec.check.features import analyze_url
+
+    for u in ["http://[::1", "http://[::1]extra/", "http://user@:80/",
+              "http://:99999/", "", "x" * 3000, "http://%41%42/"]:
+        analyze_url(u)
 
 
 def test_misplaced_flag_suggests_subcommand():
