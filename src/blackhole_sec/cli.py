@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import getpass
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -11,6 +12,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+from . import __version__
 from .bundle import create_bundle, extract_bundle
 from .check.features import analyze_url
 from .check.mitre import mitre_for
@@ -50,8 +52,28 @@ def _open_vault(path: str) -> Vault:
     return v
 
 
+def _installed_version() -> str:
+    try:
+        from importlib.metadata import version
+
+        return version("blackhole-sec")
+    except Exception:
+        return __version__
+
+
+def _latest_pypi_version(timeout: int = 10) -> str:
+    import urllib.request
+
+    req = urllib.request.Request(
+        "https://pypi.org/pypi/blackhole-sec/json",
+        headers={"User-Agent": "blackhole-sec"},
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.load(r)["info"]["version"]
+
+
 @click.group(context_settings=HELP_NAMES, epilog=MAIN_EPILOG)
-@click.version_option("0.1.0", prog_name="blackhole-sec")
+@click.version_option(_installed_version(), prog_name="blackhole-sec")
 def main() -> None:
     """Offline opsec toolkit. Nothing leaves your machine."""
 
@@ -547,3 +569,44 @@ def intake_cmd(url, file):
     ok, minfo = verify_clean(file)
     console.print(format_text(info, score, verdict, conf, fired))
     console.print(f"File {file}: {'CLEAN' if ok else 'HAS-METADATA'} score={minfo['score']} sensitive={minfo.get('sensitive', [])}")
+
+
+# upgrade
+@main.command(
+    context_settings=HELP_NAMES,
+    epilog="""\b
+Examples:
+  blackhole upgrade
+  blackhole upgrade --check
+""",
+)
+@click.option(
+    "--check",
+    is_flag=True,
+    help="Only compare installed vs latest version, don't install anything.",
+)
+def upgrade_cmd(check):
+    """Upgrade to the latest release from PyPI (uses pip under the hood).
+
+    Needs network for this one command; everything else stays offline.
+    If this python has no pip, reinstall with the curl installer in the README.
+    """
+    current = _installed_version()
+    try:
+        latest = _latest_pypi_version()
+    except Exception:
+        raise click.ClickException("could not reach PyPI, check your connection and try again") from None
+    if current == latest:
+        console.print(f"[green]already on the latest ({current})[/]")
+        return
+    if check:
+        console.print(f"installed: {current}  latest: {latest}  (run without --check to upgrade)")
+        return
+    console.print(f"upgrading {current} -> {latest} ...")
+    try:
+        subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "blackhole-sec"], check=True)
+    except FileNotFoundError:
+        raise click.ClickException("no pip in this python; reinstall with the curl installer (see README)") from None
+    except subprocess.CalledProcessError as e:
+        raise click.ClickException(f"pip failed with exit {e.returncode}") from e
+    console.print(f"[green]upgraded to {latest}[/] (open a new shell if the old version still shows)")

@@ -63,3 +63,13 @@ blackhole bundle extract ./photos.bhb ./restored --password
 
 One-shot triage for a DM with a link and an attachment: prints the link
 verdict plus the file metadata verdict.
+
+## blackhole upgrade [--check]
+
+Fetches the latest release from PyPI and installs it with pip. The one
+command here that needs network. `--check` only compares versions.
+
+```bash
+blackhole upgrade --check
+blackhole upgrade
+```

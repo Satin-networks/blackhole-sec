@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1
+
+- Every command documents its arguments with examples (`COMMAND -h`,
+  plus `-h` short flag everywhere).
+- New `blackhole upgrade` (and `--check`) for self-updates from PyPI.
+- Curl installer trio: `scripts/install.sh`, `update.sh`, `uninstall.sh`.
+- CLI version now reads installed package metadata, no more drift.
+
 ## 0.1.0 - first public cut
 
 - `check`: offline link scoring, 25+ signals, JSON/CSV/batch, exit codes.

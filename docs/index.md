@@ -28,6 +28,9 @@ Everything runs offline. Nothing phones home.
 
 ```bash
 pip install blackhole-sec
+# or without touching pip yourself:
+curl -fsSL https://raw.githubusercontent.com/Satin-networks/blackhole-sec/main/scripts/install.sh | bash
+
 blackhole check "http://secure-paypal-login.tk/free-nitro"
 blackhole vault init
 blackhole shred analyze photo.jpg

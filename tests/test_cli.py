@@ -35,6 +35,7 @@ def test_every_command_has_help():
         ["bundle", "create", "--help"],
         ["bundle", "extract", "--help"],
         ["intake", "--help"],
+        ["upgrade", "--help"],
     ]
     for args in groups:
         r = runner.invoke(main, args)
@@ -104,3 +105,54 @@ def test_vault_gen_validates():
     r = runner.invoke(main, ["vault", "gen", "--words", "5"])
     assert r.exit_code == 0
     assert len(r.output.strip().split("-")) == 5
+
+
+def test_upgrade_check_reports_versions(monkeypatch):
+    from blackhole_sec import cli
+
+    monkeypatch.setattr(cli, "_installed_version", lambda: "0.1.0")
+    monkeypatch.setattr(cli, "_latest_pypi_version", lambda timeout=10: "0.1.1")
+    r = runner.invoke(main, ["upgrade", "--check"])
+    assert r.exit_code == 0
+    assert "0.1.0" in r.output and "0.1.1" in r.output
+
+
+def test_upgrade_check_already_latest(monkeypatch):
+    from blackhole_sec import cli
+
+    monkeypatch.setattr(cli, "_installed_version", lambda: "0.1.1")
+    monkeypatch.setattr(cli, "_latest_pypi_version", lambda timeout=10: "0.1.1")
+    r = runner.invoke(main, ["upgrade", "--check"])
+    assert r.exit_code == 0
+    assert "already on the latest" in r.output
+
+
+def test_upgrade_runs_pip(monkeypatch):
+    import subprocess
+
+    from blackhole_sec import cli
+
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(cli, "_installed_version", lambda: "0.1.0")
+    monkeypatch.setattr(cli, "_latest_pypi_version", lambda timeout=10: "0.1.1")
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+    r = runner.invoke(main, ["upgrade"])
+    assert r.exit_code == 0, r.output
+    assert calls and calls[0][-2:] == ["--upgrade", "blackhole-sec"]
+
+
+def test_upgrade_no_network(monkeypatch):
+    from blackhole_sec import cli
+
+    def boom(timeout=10):
+        raise OSError("offline")
+
+    monkeypatch.setattr(cli, "_latest_pypi_version", boom)
+    r = runner.invoke(main, ["upgrade", "--check"])
+    assert r.exit_code != 0
+    assert "PyPI" in r.output

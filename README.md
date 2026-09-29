@@ -96,15 +96,28 @@ blackhole intake "http://evil.tk/login" ./photo.jpg  # link + file in one go
 
 ## Install
 
-Python 3.11 or newer.
+Python 3.11 or newer. Pick one:
 
 ```bash
+# with pip
 pip install blackhole-sec
-pip install -e ".[dev]"  # hacking on it
+
+# without touching pip yourself (venv + links handled for you)
+curl -fsSL https://raw.githubusercontent.com/Satin-networks/blackhole-sec/main/scripts/install.sh | bash
+```
+
+From source:
+
+```bash
+pip install -e ".[dev]"
 ```
 
 Depends on click, rich, cryptography, argon2-cffi, Pillow, pyyaml and
 pydantic. That's it.
+
+Upgrade later with `blackhole upgrade` (or the scripts/update.sh
+one-liner). Remove with the scripts/uninstall.sh one-liner; your vault
+file is left alone.
 
 ## Layout
 
