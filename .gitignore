@@ -18,6 +18,9 @@ venv/
 .blackhole/
 .env
 
+# docs build output
+site/
+
 # os / editors
 .DS_Store
 .idea/
