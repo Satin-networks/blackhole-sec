@@ -753,6 +753,9 @@ Everything runs offline. Nothing phones home.</p>
 </div>
 
 <div class="highlight"><pre><span></span><code>pip<span class="w"> </span>install<span class="w"> </span>blackhole-sec
+<span class="c1"># or without touching pip yourself:</span>
+curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/Satin-networks/blackhole-sec/main/scripts/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash
+
 blackhole<span class="w"> </span>check<span class="w"> </span><span class="s2">"http://secure-paypal-login.tk/free-nitro"</span>
 blackhole<span class="w"> </span>vault<span class="w"> </span>init
 blackhole<span class="w"> </span>shred<span class="w"> </span>analyze<span class="w"> </span>photo.jpg
