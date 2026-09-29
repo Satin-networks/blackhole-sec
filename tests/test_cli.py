@@ -156,3 +156,46 @@ def test_upgrade_no_network(monkeypatch):
     r = runner.invoke(main, ["upgrade", "--check"])
     assert r.exit_code != 0
     assert "PyPI" in r.output
+
+
+def test_bundle_create_unwritable_dir(tmp_path):
+    import os
+
+    if os.geteuid() == 0:
+        import pytest
+
+        pytest.skip("permission bits don't apply to root")
+    src = tmp_path / "d"
+    src.mkdir()
+    (src / "f.txt").write_text("x")
+    denied = tmp_path / "noperm"
+    denied.mkdir()
+    denied.chmod(0o555)
+    try:
+        r = runner.invoke(main, ["bundle", "create", "--no-password", str(src), str(denied / "o.bhb")])
+    finally:
+        denied.chmod(0o755)
+    assert r.exit_code != 0
+    assert "permission denied" in r.output
+    assert "Traceback" not in r.output
+
+
+def test_bundle_extract_wrong_password_is_clean(tmp_path):
+    from blackhole_sec.bundle import create_bundle
+
+    src = tmp_path / "d"
+    src.mkdir()
+    (src / "s.txt").write_text("s")
+    bhb = tmp_path / "c.bhb"
+    create_bundle(src, bhb, password="right-password-1")
+    r = runner.invoke(main, ["bundle", "extract", str(bhb), str(tmp_path / "out")])
+    assert r.exit_code != 0
+    assert "password" in r.output.lower()
+    assert "Traceback" not in r.output
+
+
+def test_vault_missing_hints_init(tmp_path):
+    r = runner.invoke(main, ["vault", "get", "ghost", "--vault", str(tmp_path / "nope.db")])
+    assert r.exit_code != 0
+    assert "vault init" in r.output
+    assert "Traceback" not in r.output

@@ -2,10 +2,13 @@
 from __future__ import annotations
 
 import csv
+import errno
 import getpass
 import json
+import os
 import subprocess
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 import click
@@ -44,9 +47,15 @@ def _master(prompt: str = "Master password: ") -> str:
 
 
 def _open_vault(path: str) -> Vault:
-    v = Vault(Path(path).expanduser())
+    p = Path(path).expanduser()
+    if not p.exists():
+        raise click.ClickException(
+            f"no vault at {p}. Run 'blackhole vault init' first (or fix --vault PATH)."
+        )
+    v = Vault(p)
     try:
-        v.unlock(_master())
+        with _fs(f"could not open vault {p}"):
+            v.unlock(_master())
     except VaultLocked as e:
         raise click.ClickException(str(e)) from e
     return v
@@ -70,6 +79,45 @@ def _latest_pypi_version(timeout: int = 10) -> str:
     )
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.load(r)["info"]["version"]
+
+
+@contextmanager
+def _fs(action: str):
+    """Turn filesystem failures into one-line errors instead of tracebacks."""
+    try:
+        yield
+    except OSError as e:
+        raise _friendly(action, e) from e
+
+
+def _friendly(action: str, e: OSError) -> click.ClickException:
+    reason = {
+        errno.EACCES: "permission denied",
+        errno.EPERM: "operation not permitted",
+        errno.ENOENT: "no such file or directory",
+        errno.ENOSPC: "disk full",
+        errno.EROFS: "read-only filesystem",
+        errno.ENAMETOOLONG: "path too long",
+    }.get(e.errno or 0, (e.strerror or "filesystem error").lower())
+    where = f" for {e.filename}" if e.filename else ""
+    fix = "Check ownership and free space, or pick another path."
+    if (e.errno or 0) == errno.ENOENT and "vault" in action:
+        fix = "Run 'blackhole vault init' first, or point --vault at the right file."
+    return click.ClickException(f"{action} failed{where}: {reason}. {fix}")
+
+
+def _need_writable_dir(path: str | Path, what: str) -> None:
+    """Fail fast with a clear message before doing expensive work."""
+    parent = Path(path).expanduser().parent
+    if str(parent) in ("", "."):
+        parent = Path(".")
+    if not parent.exists():
+        raise click.ClickException(f"cannot write {what} to {path}: directory {parent} does not exist.")
+    if not os.access(parent, os.W_OK | os.X_OK):
+        raise click.ClickException(
+            f"cannot write {what} to {path}: permission denied for {parent}. "
+            "Pick a directory you own, e.g. ~/backups."
+        )
 
 
 @click.group(context_settings=HELP_NAMES, epilog=MAIN_EPILOG)
@@ -125,7 +173,11 @@ def check_cmd(urls, file_, as_json, as_csv, explain, threshold):
     """
     targets: list[str] = list(urls)
     if file_:
-        src = sys.stdin.read().splitlines() if file_ == "-" else Path(file_).read_text().splitlines()
+        if file_ == "-":
+            src = sys.stdin.read().splitlines()
+        else:
+            with _fs("could not read URL list"):
+                src = Path(file_).read_text().splitlines()
         targets += [line.strip() for line in src if line.strip()]
     if not targets:
         raise click.UsageError("give at least one URL or --file PATH")
@@ -200,7 +252,8 @@ def vault_init(vault):
         raise click.ClickException("passwords differ, try again")
     if not m1:
         raise click.ClickException("empty master password, try again")
-    Vault.create(p, m1)
+    with _fs(f"could not create vault {p}"):
+        Vault.create(p, m1)
     console.print(f"[green]vault created[/] {p} (0600, argon2id + aes-gcm)")
 
 
@@ -250,7 +303,8 @@ def vault_set(service, vault, username, generate, passphrase):
     if not username:
         username = click.prompt("Username", default="")
     notes = click.prompt("Notes (optional)", default="")
-    v.set(service, username, pw, notes)
+    with _fs(f"could not save entry in {v.path}"):
+        v.set(service, username, pw, notes)
     if generate or passphrase:
         console.print(f"[green]saved[/] {service}  generated secret: {pw}")
     else:
@@ -398,7 +452,8 @@ Example:
 def shred_analyze(files):
     """Show metadata score (0-100) and sensitive tags per FILE. Read-only."""
     for f in files:
-        info = analyze_file(f)
+        with _fs(f"could not read {f}"):
+            info = analyze_file(f)
         color = "green" if info["score"] >= 80 else ("yellow" if info["score"] >= 50 else "red")
         console.print(f"[bold {color}]{info['score']}/100[/] {f} tags={info.get('sensitive', [])}")
 
@@ -420,11 +475,13 @@ def shred_clean(files, out_dir, yes):
     for f in files:
         out = Path(out_dir) / (Path(f).stem + ".cleaned" + Path(f).suffix) if out_dir else None
         if out:
-            out.parent.mkdir(parents=True, exist_ok=True)
+            with _fs(f"could not prepare output directory for {f}"):
+                out.parent.mkdir(parents=True, exist_ok=True)
         if not yes and not click.confirm(f"Clean {f} -> {out or 'auto'}?"):
             continue
-        p = clean_file(f, out)
-        ok, _ = verify_clean(p)
+        with _fs(f"could not clean {f}"):
+            p = clean_file(f, out)
+            ok, _ = verify_clean(p)
         console.print(f"[green]cleaned[/] {p} verify={'PASS' if ok else 'REMAINING-RISK'}")
 
 
@@ -441,7 +498,8 @@ def shred_verify(files):
     """Exit 0 if every FILE is clean, 1 otherwise. Built for scripts."""
     bad = 0
     for f in files:
-        ok, info = verify_clean(f)
+        with _fs(f"could not read {f}"):
+            ok, info = verify_clean(f)
         console.print(f"{'PASS' if ok else 'FAIL'} {f} sensitive={info.get('sensitive', [])}")
         bad += not ok
     sys.exit(1 if bad else 0)
@@ -469,7 +527,8 @@ def shred_shred(files, passes, yes):
     for f in files:
         if not yes and not click.confirm(f"Securely delete {f} ({passes} passes)? This is irreversible"):
             continue
-        shred_file(f, int(passes))
+        with _fs(f"could not shred {f}"):
+            shred_file(f, int(passes))
         console.print(f"[red]shredded[/] {f}")
 
 
@@ -518,6 +577,7 @@ def bundle_create(src, out, password, no_password):
     """
     if password and no_password:
         raise click.UsageError("use either --password or --no-password, not both")
+    _need_writable_dir(out, "bundle")
     pw = None
     if not no_password:
         p1 = _master("Bundle password: ")
@@ -527,7 +587,8 @@ def bundle_create(src, out, password, no_password):
         if not p1:
             raise click.ClickException("empty password, rerun with --no-password for keyfile mode")
         pw = p1
-    meta = create_bundle(src, out, pw)
+    with _fs(f"could not create bundle {out}"):
+        meta = create_bundle(src, out, pw)
     console.print(f"[green]bundle created[/] {meta['bundle']} ({meta['bytes_out']}B from {meta['bytes_in']}B tar, {meta['kdf']})")
     if meta.get("keyfile"):
         console.print(f"[yellow]KEEP SAFE:[/] keyfile {meta['keyfile']} (0600) - needed to extract")
@@ -550,7 +611,8 @@ def bundle_extract(bundle, dest, password, keyfile):
     """Decrypt BUNDLE_FILE into DEST_DIR. Wrong password/key just refuses to open."""
     pw = _master("Bundle password: ") if password else None
     try:
-        names = extract_bundle(bundle, dest, pw, keyfile)
+        with _fs(f"could not extract {bundle}"):
+            names = extract_bundle(bundle, dest, pw, keyfile)
     except ValueError as e:
         raise click.ClickException(str(e)) from e
     console.print(f"[green]extracted {len(names)} files[/] -> {dest}")
@@ -571,7 +633,8 @@ def intake_cmd(url, file):
     """Score a link and check a file in one go. For triaging a DM with an attachment."""
     info, feats = analyze_url(url)
     score, verdict, conf, fired = score_features(feats)
-    ok, minfo = verify_clean(file)
+    with _fs(f"could not read {file}"):
+        ok, minfo = verify_clean(file)
     console.print(format_text(info, score, verdict, conf, fired))
     console.print(f"File {file}: {'CLEAN' if ok else 'HAS-METADATA'} score={minfo['score']} sensitive={minfo.get('sensitive', [])}")
 

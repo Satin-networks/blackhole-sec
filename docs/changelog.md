@@ -7,6 +7,8 @@
 - New `blackhole upgrade` (and `--check`) for self-updates from PyPI.
 - Curl installer trio: `scripts/install.sh`, `update.sh`, `uninstall.sh`.
 - CLI version now reads installed package metadata, no more drift.
+- Filesystem failures (permission denied, missing vault, bad password)
+  print one-line errors instead of tracebacks.
 
 ## 0.1.0 - first public cut
 
