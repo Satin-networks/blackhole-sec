@@ -199,3 +199,22 @@ def test_vault_missing_hints_init(tmp_path):
     assert r.exit_code != 0
     assert "vault init" in r.output
     assert "Traceback" not in r.output
+
+
+def test_misplaced_flag_suggests_subcommand():
+    r = runner.invoke(main, ["bundle", "--no-password", "a", "b"])
+    assert r.exit_code != 0
+    assert "bundle create" in r.output
+    assert "--no-password" in r.output
+
+
+def test_misplaced_flag_on_top_level():
+    r = runner.invoke(main, ["--json", "http://x.tk/"])
+    assert r.exit_code != 0
+    assert "check" in r.output
+
+
+def test_typo_suggests_command():
+    r = runner.invoke(main, ["bundle", "cretae"])
+    assert r.exit_code != 0
+    assert "create" in r.output

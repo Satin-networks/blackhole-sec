@@ -42,6 +42,40 @@ Full guide: https://satin-networks.github.io/blackhole-sec/
 """
 
 
+class SuggestGroup(click.Group):
+    """A group that points at the right subcommand on typos and misplaced flags."""
+
+    def parse_args(self, ctx, args):
+        try:
+            return super().parse_args(ctx, args)
+        except click.NoSuchOption as e:
+            owner = self._find_flag_owner(e.option_name)
+            if owner:
+                e.message += f". Did you mean '{ctx.command_path} {owner} {e.option_name} ...'?"
+            raise
+
+    def resolve_command(self, ctx, args):
+        try:
+            return super().resolve_command(ctx, args)
+        except click.UsageError as e:
+            if args:
+                import difflib
+
+                guess = difflib.get_close_matches(args[0], list(self.commands), n=1)
+                if guess:
+                    raise click.UsageError(
+                        f"No such command '{args[0]}'. Did you mean '{guess[0]}'?"
+                    ) from e
+            raise
+
+    def _find_flag_owner(self, option_name: str) -> str | None:
+        for sub, cmd in sorted(self.commands.items()):
+            for p in getattr(cmd, "params", []):
+                if isinstance(p, click.Option) and option_name in p.opts:
+                    return sub
+        return None
+
+
 def _master(prompt: str = "Master password: ") -> str:
     return getpass.getpass(prompt)
 
@@ -120,7 +154,7 @@ def _need_writable_dir(path: str | Path, what: str) -> None:
         )
 
 
-@click.group(context_settings=HELP_NAMES, epilog=MAIN_EPILOG)
+@click.group(cls=SuggestGroup, context_settings=HELP_NAMES, epilog=MAIN_EPILOG)
 @click.version_option(_installed_version(), prog_name="blackhole-sec")
 def main() -> None:
     """Offline opsec toolkit. Nothing leaves your machine."""
@@ -210,6 +244,7 @@ def check_cmd(urls, file_, as_json, as_csv, explain, threshold):
 # vault
 @main.group(
     "vault",
+    cls=SuggestGroup,
     context_settings=HELP_NAMES,
     epilog="""\b
 Examples:
@@ -424,6 +459,7 @@ def vault_gen(length, words):
 # shred
 @main.group(
     "shred",
+    cls=SuggestGroup,
     context_settings=HELP_NAMES,
     epilog="""\b
 Examples:
@@ -535,6 +571,7 @@ def shred_shred(files, passes, yes):
 # bundle
 @main.group(
     "bundle",
+    cls=SuggestGroup,
     context_settings=HELP_NAMES,
     epilog="""\b
 Examples:
