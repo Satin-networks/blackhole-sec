@@ -901,6 +901,12 @@ blackhole<span class="w"> </span>vault<span class="w"> </span><span class="nb">s
 <span class="c1"># read it back</span>
 blackhole<span class="w"> </span>vault<span class="w"> </span>get<span class="w"> </span>github<span class="w"> </span>--show
 
+<span class="c1"># delete one you don't need (asks first unless --yes)</span>
+blackhole<span class="w"> </span>vault<span class="w"> </span>rm<span class="w"> </span>old-forum
+
+<span class="c1"># change the master (re-encrypts everything)</span>
+blackhole<span class="w"> </span>vault<span class="w"> </span>passwd
+
 <span class="c1"># copy without printing (best-effort clipboard, clears after ~30s)</span>
 blackhole<span class="w"> </span>vault<span class="w"> </span>get<span class="w"> </span>github
 

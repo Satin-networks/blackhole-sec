@@ -694,10 +694,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#blackhole-intake-url-file" class="md-nav__link">
+  <a href="#blackhole-intake-url-file-json" class="md-nav__link">
     <span class="md-ellipsis">
       
-        blackhole intake URL FILE
+        blackhole intake URL FILE [--json]
       
     </span>
   </a>
@@ -886,10 +886,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#blackhole-intake-url-file" class="md-nav__link">
+  <a href="#blackhole-intake-url-file-json" class="md-nav__link">
     <span class="md-ellipsis">
       
-        blackhole intake URL FILE
+        blackhole intake URL FILE [--json]
       
     </span>
   </a>
@@ -933,10 +933,13 @@ says it better, since it is generated from the same code.</p>
 <h2 id="conventions">Conventions<a class="headerlink" href="#conventions" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>-h</code> works everywhere as a short <code>--help</code>.</li>
+<li><code>--no-color</code> on any command (or the NO_COLOR env var) disables colors.
+  <code>--json</code> and <code>--csv</code> are always plain.</li>
 <li>Secrets are typed into hidden prompts, never passed as flags (so they
   stay out of shell history).</li>
 <li>Commands that inspect only (<code>check</code>, <code>shred analyze</code>, <code>shred verify</code>,
   <code>vault list</code>, <code>vault audit</code>) never change anything.</li>
+<li>Filesystem failures print one line naming the file, never a traceback.</li>
 </ul>
 <h2 id="blackhole-check-url">blackhole check [URL]...<a class="headerlink" href="#blackhole-check-url" title="Permanent link">&para;</a></h2>
 <p>Score links without fetching them. Defanged output, JSON/CSV modes,
@@ -952,7 +955,8 @@ secret without storing it.</p>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>vault<span class="w"> </span>init<span class="w"> </span>--vault<span class="w"> </span>~/.blackhole/vault.db
 blackhole<span class="w"> </span>vault<span class="w"> </span><span class="nb">set</span><span class="w"> </span>github<span class="w"> </span>--username<span class="w"> </span>alice<span class="w"> </span>--generate<span class="w"> </span><span class="m">24</span>
 blackhole<span class="w"> </span>vault<span class="w"> </span>get<span class="w"> </span>github<span class="w"> </span>--show
-blackhole<span class="w"> </span>vault<span class="w"> </span>audit
+blackhole<span class="w"> </span>vault<span class="w"> </span>rm<span class="w"> </span>old-forum<span class="w"> </span>--yes
+blackhole<span class="w"> </span>vault<span class="w"> </span>passwd
 </code></pre></div>
 <p><code>--vault PATH</code> on any subcommand points at a different vault file.</p>
 <h2 id="blackhole-shred">blackhole shred ...<a class="headerlink" href="#blackhole-shred" title="Permanent link">&para;</a></h2>
@@ -964,14 +968,19 @@ blackhole<span class="w"> </span>shred<span class="w"> </span>verify<span class=
 blackhole<span class="w"> </span>shred<span class="w"> </span>shred<span class="w"> </span>secret.txt<span class="w"> </span>--passes<span class="w"> </span><span class="m">7</span><span class="w"> </span>--yes
 </code></pre></div>
 <h2 id="blackhole-bundle">blackhole bundle ...<a class="headerlink" href="#blackhole-bundle" title="Permanent link">&para;</a></h2>
-<p><code>create</code> packs SRC_DIR into OUT_FILE (<code>.bhb</code>), <code>extract</code> unpacks it.
-Password mode prompts; <code>--no-password</code> writes an OUT_FILE.key instead.</p>
+<p><code>create</code> packs SRC_DIR into OUT_FILE (<code>.bhb</code>), <code>extract</code> unpacks it,
+<code>list</code> shows contents without extracting, <code>verify</code> checks the
+password/key with exit 0/1. Password mode prompts; <code>--no-password</code>
+writes an OUT_FILE.key instead.</p>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb
 blackhole<span class="w"> </span>bundle<span class="w"> </span>extract<span class="w"> </span>./photos.bhb<span class="w"> </span>./restored<span class="w"> </span>--password
+blackhole<span class="w"> </span>bundle<span class="w"> </span>list<span class="w"> </span>./photos.bhb<span class="w"> </span>--password
+blackhole<span class="w"> </span>bundle<span class="w"> </span>verify<span class="w"> </span>./photos.bhb<span class="w"> </span>--password<span class="p">;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 </code></pre></div>
-<h2 id="blackhole-intake-url-file">blackhole intake URL FILE<a class="headerlink" href="#blackhole-intake-url-file" title="Permanent link">&para;</a></h2>
+<h2 id="blackhole-intake-url-file-json">blackhole intake URL FILE [--json]<a class="headerlink" href="#blackhole-intake-url-file-json" title="Permanent link">&para;</a></h2>
 <p>One-shot triage for a DM with a link and an attachment: prints the link
-verdict plus the file metadata verdict.</p>
+verdict plus the file metadata verdict. <code>--json</code> merges both into one
+machine-readable object.</p>
 <h2 id="blackhole-upgrade-check">blackhole upgrade [--check]<a class="headerlink" href="#blackhole-upgrade-check" title="Permanent link">&para;</a></h2>
 <p>Fetches the latest release from PyPI and installs it with pip. The one
 command here that needs network. <code>--check</code> only compares versions.</p>

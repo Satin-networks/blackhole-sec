@@ -634,6 +634,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#peeking-without-unpacking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Peeking without unpacking
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-it-compares-to-zip" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -831,6 +842,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#peeking-without-unpacking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Peeking without unpacking
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-it-compares-to-zip" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -905,6 +927,12 @@ blackhole<span class="w"> </span>bundle<span class="w"> </span>extract<span clas
 </code></pre></div>
 <p>A wrong password, a wrong keyfile, or a tampered file just refuses to
 open. There is no partial extract.</p>
+<h2 id="peeking-without-unpacking">Peeking without unpacking<a class="headerlink" href="#peeking-without-unpacking" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>list<span class="w"> </span>./photos.bhb<span class="w"> </span>--password
+blackhole<span class="w"> </span>bundle<span class="w"> </span>verify<span class="w"> </span>./photos.bhb<span class="w"> </span>--password<span class="p">;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+</code></pre></div>
+<p><code>list</code> prints every file with its size. <code>verify</code> only checks the
+password/key and authenticity: exit 0 opens, 1 does not.</p>
 <h2 id="how-it-compares-to-zip">How it compares to zip<a class="headerlink" href="#how-it-compares-to-zip" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
