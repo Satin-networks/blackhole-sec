@@ -933,7 +933,7 @@ blackhole<span class="w"> </span>vault<span class="w"> </span>audit<span class="
 <div class="highlight"><pre><span></span><code><span class="k">for</span><span class="w"> </span>f<span class="w"> </span><span class="k">in</span><span class="w"> </span>*.jpg<span class="p">;</span><span class="w"> </span><span class="k">do</span><span class="w"> </span>blackhole<span class="w"> </span>shred<span class="w"> </span>clean<span class="w"> </span><span class="s2">"</span><span class="nv">$f</span><span class="s2">"</span><span class="w"> </span>--yes<span class="p">;</span><span class="w"> </span><span class="k">done</span>
 blackhole<span class="w"> </span>shred<span class="w"> </span>verify<span class="w"> </span>*.cleaned.jpg
 blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>.<span class="w"> </span>./upload.bhb<span class="w"> </span>--no-password
-<span class="c1"># upload upload.bhb, hand over upload.bhb.key in person or via vault</span>
+<span class="c1"># upload upload.bhb - plain mode, so only for stuff that's fine public</span>
 </code></pre></div>
 <h2 id="checking-a-list-from-a-mod-queue">Checking a list from a mod queue<a class="headerlink" href="#checking-a-list-from-a-mod-queue" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>check<span class="w"> </span>-f<span class="w"> </span>reported-links.txt<span class="w"> </span>--csv<span class="w"> </span>&gt;<span class="w"> </span>verdicts.csv

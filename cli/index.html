@@ -971,7 +971,7 @@ blackhole<span class="w"> </span>shred<span class="w"> </span>shred<span class="
 <p><code>create</code> packs SRC_DIR into OUT_FILE (<code>.bhb</code>), <code>extract</code> unpacks it,
 <code>list</code> shows contents without extracting, <code>verify</code> checks the
 password/key with exit 0/1. Password mode prompts; <code>--no-password</code>
-writes an OUT_FILE.key instead.</p>
+packs plain with no encryption.</p>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb
 blackhole<span class="w"> </span>bundle<span class="w"> </span>extract<span class="w"> </span>./photos.bhb<span class="w"> </span>./restored<span class="w"> </span>--password
 blackhole<span class="w"> </span>bundle<span class="w"> </span>list<span class="w"> </span>./photos.bhb<span class="w"> </span>--password

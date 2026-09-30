@@ -928,10 +928,10 @@
 
 
 <h1 id="bundles-bhb">Bundles (.bhb)<a class="headerlink" href="#bundles-bhb" title="Permanent link">&para;</a></h1>
-<p>Zip passwords crack fast, and even AES zip leaves filenames sitting in the
-clear for anyone to read. <code>.bhb</code> packs a directory to tar.gz and encrypts
-the whole thing, names and all. Only blackhole can open it, which is the
-whole point.</p>
+<p>Two flavors. With a password, <code>.bhb</code> packs a directory to tar.gz and
+encrypts the whole thing, names and all - only blackhole opens it.
+With <code>--no-password</code> it packs plain: no encryption, opens with no
+flags, same as a zip with no password. Pick per bundle.</p>
 <h2 id="creating-one">Creating one<a class="headerlink" href="#creating-one" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><span class="c1"># password mode (prompts twice)</span>
 blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb
@@ -939,16 +939,16 @@ blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class
 <span class="c1"># same, explicit flag</span>
 blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb<span class="w"> </span>--password
 
-<span class="c1"># keyfile mode: no password, writes photos.bhb.key (0600) next to it.</span>
-<span class="c1"># You need both files to extract.</span>
+<span class="c1"># plain mode: no password, no extra files, anyone can open it</span>
 blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb<span class="w"> </span>--no-password
 </code></pre></div>
 <h2 id="opening-one">Opening one<a class="headerlink" href="#opening-one" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>extract<span class="w"> </span>./photos.bhb<span class="w"> </span>./restored<span class="w"> </span>--password
-blackhole<span class="w"> </span>bundle<span class="w"> </span>extract<span class="w"> </span>./photos.bhb<span class="w"> </span>./restored<span class="w"> </span>--keyfile<span class="w"> </span>./photos.bhb.key
+blackhole<span class="w"> </span>bundle<span class="w"> </span>extract<span class="w"> </span>./photos.bhb<span class="w"> </span>./restored<span class="w">   </span><span class="c1"># plain bundles need nothing</span>
 </code></pre></div>
-<p>A wrong password, a wrong keyfile, or a tampered file just refuses to
-open. There is no partial extract.</p>
+<p>A wrong password or a tampered file just refuses to open. There is no
+partial extract. Bundles made back when <code>--no-password</code> wrote a <code>.key</code>
+file still open with <code>--keyfile</code>, nothing else changed for them.</p>
 <h2 id="peeking-without-unpacking">Peeking without unpacking<a class="headerlink" href="#peeking-without-unpacking" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>list<span class="w"> </span>./photos.bhb<span class="w"> </span>--password
 blackhole<span class="w"> </span>bundle<span class="w"> </span>verify<span class="w"> </span>./photos.bhb<span class="w"> </span>--password<span class="p">;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
@@ -965,7 +965,7 @@ root-owned too, including anything you extract.</p>
 <thead>
 <tr>
 <th>Problem with zip</th>
-<th>What .bhb does</th>
+<th>What .bhb password mode does</th>
 </tr>
 </thead>
 <tbody>
@@ -988,18 +988,16 @@ root-owned too, including anything you extract.</p>
 </tbody>
 </table>
 <h2 id="format-v1">Format v1<a class="headerlink" href="#format-v1" title="Permanent link">&para;</a></h2>
-<p>Big-endian, one header, one ciphertext:</p>
-<div class="highlight"><pre><span></span><code>BHB1 | kdf_id | t,m,p | salt | nonce (12) | ct_len (u64) | ct
+<p>Big-endian, one header, one payload:</p>
+<div class="highlight"><pre><span></span><code>BHB1 | kdf_id | t,m,p | salt | [nonce (12)] | ct_len (u64) | ct
 </code></pre></div>
-<p><code>ct</code> holds the tar.gz bytes. The header is passed as AAD so any edit to
-it fails decryption. <code>kdf_id</code> 1 means Argon2id with the stored params,
-0 means keyfile mode with a random 32-byte key.</p>
+<p><code>kdf_id</code> 1 (password) and 0 (old keyfile) carry a nonce and <code>ct</code> is
+AES-GCM with the header as AAD. <code>kdf_id</code> 2 (plain) has no nonce and
+<code>ct</code> is the tar.gz as-is.</p>
 <p>Implementation lives in <code>src/blackhole_sec/bundle/__init__.py</code>. It is
 short enough to read in one sitting, which is intentional.</p>
 <h2 id="tips">Tips<a class="headerlink" href="#tips" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Keep the <code>.key</code> file like a password: USB stick, vault, paper. Losing
-  both the bundle password and the keyfile means losing the data.</li>
 <li>Bundle the cleaned copies (<code>*.cleaned.jpg</code>), not the originals, when
   you share photos with other people.</li>
 <li><code>.bhb</code> files are chmod 0600 on creation. Copy them normally, perms do
