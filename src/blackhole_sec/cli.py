@@ -17,7 +17,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from . import __version__
-from .bundle import create_bundle, extract_bundle, list_bundle, read_bundle
+from .bundle import bundle_kind, create_bundle, extract_bundle, list_bundle, read_bundle
 from .check.features import analyze_url
 from .check.mitre import mitre_for
 from .check.report import defang, format_text, to_dict
@@ -714,8 +714,8 @@ def bundle_grp():
     """Pack directories into encrypted .bhb files.
 
     Password mode derives the key from your password (Argon2id).
-    Keyfile mode (--no-password) writes OUT.key, and you need both
-    files to extract. See 'blackhole bundle create -h'.
+    --no-password packs without encryption: anyone with the file can
+    open it. See 'blackhole bundle create -h'.
     """
 
 
@@ -735,7 +735,7 @@ Examples:
 @click.option(
     "--no-password",
     is_flag=True,
-    help="Keyfile mode: random key, writes OUT_FILE.key (0600). Keep it safe, it is required to extract.",
+    help="No encryption, no prompt: anyone with the file can open it. Only for non-sensitive stuff.",
 )
 def bundle_create(src, out, password, no_password):
     """Archive SRC_DIR into encrypted OUT_FILE (.bhb).
@@ -759,6 +759,8 @@ def bundle_create(src, out, password, no_password):
         meta = create_bundle(src, out, pw)
     console.print(f"[green]bundle created[/] {meta['bundle']} ({meta['bytes_out']}B from {meta['bytes_in']}B tar, {meta['kdf']})")
     console.print(f"[dim]source left untouched: {src}[/]")
+    if meta["kdf"].startswith("plain"):
+        console.print("[yellow]not encrypted: anyone with this file can open it[/]")
     if meta.get("keyfile"):
         console.print(f"[yellow]KEEP SAFE:[/] keyfile {meta['keyfile']} (0600) - needed to extract")
 
@@ -775,7 +777,7 @@ Examples:
 @click.argument("bundle", metavar="BUNDLE_FILE")
 @click.argument("dest", metavar="DEST_DIR")
 @click.option("--password", is_flag=True, help="Prompt for the bundle password (password-mode bundles).")
-@click.option("--keyfile", default=None, metavar="PATH", help="Key file for keyfile-mode bundles (defaults to BUNDLE_FILE.key).")
+@click.option("--keyfile", default=None, metavar="PATH", help="Key file for old keyfile-mode bundles (defaults to BUNDLE_FILE.key).")
 def bundle_extract(bundle, dest, password, keyfile):
     """Decrypt BUNDLE_FILE into DEST_DIR. Wrong password/key just refuses to open."""
     pw = _master("Bundle password: ") if password else None
@@ -804,7 +806,7 @@ Examples:
 )
 @click.argument("bundle", metavar="BUNDLE_FILE")
 @click.option("--password", is_flag=True, help="Prompt for the bundle password (password-mode bundles).")
-@click.option("--keyfile", default=None, metavar="PATH", help="Key file for keyfile-mode bundles (defaults to BUNDLE_FILE.key).")
+@click.option("--keyfile", default=None, metavar="PATH", help="Key file for old keyfile-mode bundles (defaults to BUNDLE_FILE.key).")
 def bundle_list(bundle, password, keyfile):
     """Show what's inside BUNDLE_FILE without extracting anything."""
     pw, kf = _bundle_secret(password, keyfile)
@@ -832,17 +834,19 @@ Example:
 )
 @click.argument("bundle", metavar="BUNDLE_FILE")
 @click.option("--password", is_flag=True, help="Prompt for the bundle password (password-mode bundles).")
-@click.option("--keyfile", default=None, metavar="PATH", help="Key file for keyfile-mode bundles (defaults to BUNDLE_FILE.key).")
+@click.option("--keyfile", default=None, metavar="PATH", help="Key file for old keyfile-mode bundles (defaults to BUNDLE_FILE.key).")
 def bundle_verify(bundle, password, keyfile):
     """Check a bundle opens with this password/key. Exit 0 yes, 1 no."""
     pw, kf = _bundle_secret(password, keyfile)
     try:
         with _fs(f"could not read {bundle}"):
             data = read_bundle(bundle, pw, kf)
+            kind = bundle_kind(bundle)
     except ValueError as e:
         console.print(f"[red]FAIL[/] {bundle}: {e}")
         sys.exit(1)
-    console.print(f"[green]OK[/] {bundle} ({len(data)} bytes of tar.gz, auth passed)")
+    tail = "plain, not encrypted" if kind == "plain" else "auth passed"
+    console.print(f"[green]OK[/] {bundle} ({len(data)} bytes of tar.gz, {tail})")
 
 
 # intake

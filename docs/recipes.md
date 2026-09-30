@@ -45,7 +45,7 @@ blackhole bundle create ./project ./project.bhb
 for f in *.jpg; do blackhole shred clean "$f" --yes; done
 blackhole shred verify *.cleaned.jpg
 blackhole bundle create . ./upload.bhb --no-password
-# upload upload.bhb, hand over upload.bhb.key in person or via vault
+# upload upload.bhb - plain mode, so only for stuff that's fine public
 ```
 
 ## Checking a list from a mod queue

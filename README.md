@@ -79,13 +79,14 @@ blackhole shred shred secret.txt --passes 7 --yes
 
 ### 4. bundle - encrypted archives that aren't zip
 
-I got tired of zip passwords cracking in minutes and filenames leaking even
-with AES. `.bhb` packs a directory to tar.gz and encrypts the whole blob.
-Filenames, sizes, everything is hidden. Only blackhole opens it.
+With a password, `.bhb` packs a directory to tar.gz and encrypts the
+whole blob. Filenames, sizes, everything is hidden. Only blackhole
+opens it. With `--no-password` it packs plain: no encryption, opens
+with nothing extra, same deal as a zip with no password.
 
 ```bash
 blackhole bundle create ./photos ./photos.bhb
-blackhole bundle create ./photos ./photos.bhb --no-password  # writes photos.bhb.key
+blackhole bundle create ./photos ./photos.bhb --no-password  # plain: anyone can open it
 blackhole bundle extract ./photos.bhb ./restored --password
 blackhole bundle list ./photos.bhb --password
 blackhole bundle verify ./photos.bhb --password; echo $?

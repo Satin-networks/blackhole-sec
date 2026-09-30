@@ -221,14 +221,15 @@ def test_vault_set_conflicting_flags(tmp_path):
     assert "not both" in r.output
 
 
-def test_bundle_list_and_verify_keyfile(tmp_path):
+def test_bundle_list_and_verify_plain(tmp_path):
     from blackhole_sec.bundle import create_bundle
 
     src = tmp_path / "d"
     (src / "sub").mkdir(parents=True)
     (src / "a.txt").write_text("hello")
     bhb = tmp_path / "k.bhb"
-    create_bundle(src, bhb, password=None)
+    meta = create_bundle(src, bhb, password=None)
+    assert meta["kdf"].startswith("plain")
     r = runner.invoke(main, ["bundle", "list", str(bhb)])
     assert r.exit_code == 0, r.output
     assert "a.txt" in r.output
@@ -237,19 +238,28 @@ def test_bundle_list_and_verify_keyfile(tmp_path):
     assert "OK" in r.output
 
 
-def test_bundle_verify_bad_keyfile_fails_clean(tmp_path):
+def test_bundle_create_plain_warns(tmp_path):
+    src = tmp_path / "d"
+    src.mkdir()
+    (src / "f.txt").write_text("x")
+    r = runner.invoke(main, ["bundle", "create", "--no-password", str(src), str(tmp_path / "o.bhb")])
+    assert r.exit_code == 0, r.output
+    assert "not encrypted" in r.output
+    assert "left untouched" in r.output
+
+
+def test_bundle_verify_needs_password_is_clean(tmp_path):
     from blackhole_sec.bundle import create_bundle
 
     src = tmp_path / "d"
     src.mkdir()
     (src / "s.txt").write_text("s")
     bhb = tmp_path / "c.bhb"
-    create_bundle(src, bhb, password=None)
-    kf = tmp_path / "bad.key"
-    kf.write_text("not-a-real-key")
-    r = runner.invoke(main, ["bundle", "verify", str(bhb), "--keyfile", str(kf)])
+    create_bundle(src, bhb, password="right-password-1")
+    r = runner.invoke(main, ["bundle", "verify", str(bhb)])
     assert r.exit_code == 1
     assert "FAIL" in r.output
+    assert "password" in r.output.lower()
     assert "Traceback" not in r.output
 
 

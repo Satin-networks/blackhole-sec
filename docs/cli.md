@@ -58,7 +58,7 @@ blackhole shred shred secret.txt --passes 7 --yes
 `create` packs SRC_DIR into OUT_FILE (`.bhb`), `extract` unpacks it,
 `list` shows contents without extracting, `verify` checks the
 password/key with exit 0/1. Password mode prompts; `--no-password`
-writes an OUT_FILE.key instead.
+packs plain with no encryption.
 
 ```bash
 blackhole bundle create ./photos ./photos.bhb

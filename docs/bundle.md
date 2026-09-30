@@ -1,9 +1,9 @@
 # Bundles (.bhb)
 
-Zip passwords crack fast, and even AES zip leaves filenames sitting in the
-clear for anyone to read. `.bhb` packs a directory to tar.gz and encrypts
-the whole thing, names and all. Only blackhole can open it, which is the
-whole point.
+Two flavors. With a password, `.bhb` packs a directory to tar.gz and
+encrypts the whole thing, names and all - only blackhole opens it.
+With `--no-password` it packs plain: no encryption, opens with no
+flags, same as a zip with no password. Pick per bundle.
 
 ## Creating one
 
@@ -14,8 +14,7 @@ blackhole bundle create ./photos ./photos.bhb
 # same, explicit flag
 blackhole bundle create ./photos ./photos.bhb --password
 
-# keyfile mode: no password, writes photos.bhb.key (0600) next to it.
-# You need both files to extract.
+# plain mode: no password, no extra files, anyone can open it
 blackhole bundle create ./photos ./photos.bhb --no-password
 ```
 
@@ -23,11 +22,12 @@ blackhole bundle create ./photos ./photos.bhb --no-password
 
 ```bash
 blackhole bundle extract ./photos.bhb ./restored --password
-blackhole bundle extract ./photos.bhb ./restored --keyfile ./photos.bhb.key
+blackhole bundle extract ./photos.bhb ./restored   # plain bundles need nothing
 ```
 
-A wrong password, a wrong keyfile, or a tampered file just refuses to
-open. There is no partial extract.
+A wrong password or a tampered file just refuses to open. There is no
+partial extract. Bundles made back when `--no-password` wrote a `.key`
+file still open with `--keyfile`, nothing else changed for them.
 
 ## Peeking without unpacking
 
@@ -48,7 +48,7 @@ root-owned too, including anything you extract.
 
 ## How it compares to zip
 
-| Problem with zip | What .bhb does |
+| Problem with zip | What .bhb password mode does |
 |---|---|
 | ZipCrypto breaks in minutes | Argon2id into AES-256-GCM, no legacy modes |
 | Filenames visible without the password | Names are inside the encrypted blob |
@@ -57,23 +57,21 @@ root-owned too, including anything you extract.
 
 ## Format v1
 
-Big-endian, one header, one ciphertext:
+Big-endian, one header, one payload:
 
 ```
-BHB1 | kdf_id | t,m,p | salt | nonce (12) | ct_len (u64) | ct
+BHB1 | kdf_id | t,m,p | salt | [nonce (12)] | ct_len (u64) | ct
 ```
 
-`ct` holds the tar.gz bytes. The header is passed as AAD so any edit to
-it fails decryption. `kdf_id` 1 means Argon2id with the stored params,
-0 means keyfile mode with a random 32-byte key.
+`kdf_id` 1 (password) and 0 (old keyfile) carry a nonce and `ct` is
+AES-GCM with the header as AAD. `kdf_id` 2 (plain) has no nonce and
+`ct` is the tar.gz as-is.
 
 Implementation lives in `src/blackhole_sec/bundle/__init__.py`. It is
 short enough to read in one sitting, which is intentional.
 
 ## Tips
 
-- Keep the `.key` file like a password: USB stick, vault, paper. Losing
-  both the bundle password and the keyfile means losing the data.
 - Bundle the cleaned copies (`*.cleaned.jpg`), not the originals, when
   you share photos with other people.
 - `.bhb` files are chmod 0600 on creation. Copy them normally, perms do

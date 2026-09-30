@@ -47,17 +47,52 @@ def test_bundle_password_roundtrip(tmp_path: Path):
     assert len(names) == 2
 
 
-def test_bundle_keyfile_roundtrip(tmp_path: Path):
+def test_bundle_plain_roundtrip(tmp_path: Path):
     src = tmp_path / "d2"
     src.mkdir()
     (src / "x.txt").write_text("x")
     bhb = tmp_path / "b.bhb"
     meta = create_bundle(src, bhb, password=None)
-    assert meta["keyfile"] and Path(meta["keyfile"]).exists()
+    assert meta["keyfile"] is None
+    assert not Path(str(bhb) + ".key").exists()
     dest = tmp_path / "o2"
     extracted = extract_bundle(bhb, dest)
     assert (dest / "x.txt").read_text() == "x"
     assert extracted == ["x.txt"]
+
+
+def test_bundle_legacy_keyfile_still_opens(tmp_path: Path):
+    """Bundles from 0.2.x keyfile mode keep opening (kdf 0 reader)."""
+    import os
+    import struct
+
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    from blackhole_sec.bundle import (
+        HEADER_FMT,
+        MAGIC,
+        NONCE_LEN,
+        VERSION_KDF_NONE,
+        _build_tar,
+    )
+    from blackhole_sec.vault.crypto import b64e
+
+    src = tmp_path / "old"
+    src.mkdir()
+    (src / "o.txt").write_text("legacy")
+    tar_bytes = _build_tar(src)
+    key = os.urandom(32)
+    salt = os.urandom(8)
+    nonce = os.urandom(NONCE_LEN)
+    header = struct.pack(HEADER_FMT, MAGIC, VERSION_KDF_NONE, 3, 65536, 4, len(salt)) + salt + nonce
+    ct = AESGCM(key).encrypt(nonce, tar_bytes, header)
+    bhb = tmp_path / "old.bhb"
+    bhb.write_bytes(header + struct.pack(">Q", len(ct)) + ct)
+    kf = tmp_path / "old.bhb.key"
+    kf.write_text(b64e(key))
+    out = tmp_path / "ro"
+    assert extract_bundle(bhb, out, keyfile=kf) == ["o.txt"]
+    assert (out / "o.txt").read_text() == "legacy"
 
 
 def test_bundle_zipslip_rejected(tmp_path: Path):

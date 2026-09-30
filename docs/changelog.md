@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2
+
+- `--no-password` now packs plain and unencrypted: no keyfile, opens
+  with no flags. Password mode is unchanged and still fully encrypted.
+- Old keyfile bundles from 0.2.x still open.
+- Damaged bundles report cleanly instead of tracebacking.
+
 ## 0.2.1
 
 - Permission errors on root-owned files now say so and suggest sudo.
