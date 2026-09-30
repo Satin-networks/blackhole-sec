@@ -645,6 +645,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#root-owned-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Root-owned files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-it-compares-to-zip" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -853,6 +864,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#root-owned-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Root-owned files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#how-it-compares-to-zip" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -933,6 +955,11 @@ blackhole<span class="w"> </span>bundle<span class="w"> </span>verify<span class
 </code></pre></div>
 <p><code>list</code> prints every file with its size. <code>verify</code> only checks the
 password/key and authenticity: exit 0 opens, 1 does not.</p>
+<h2 id="root-owned-files">Root-owned files<a class="headerlink" href="#root-owned-files" title="Permanent link">&para;</a></h2>
+<p><code>create</code> never deletes or moves your source; it only reads it. If a
+bundle (or its directory) belongs to root, run the same command with
+sudo - blackhole says so in the error. Files created that way are
+root-owned too, including anything you extract.</p>
 <h2 id="how-it-compares-to-zip">How it compares to zip<a class="headerlink" href="#how-it-compares-to-zip" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
