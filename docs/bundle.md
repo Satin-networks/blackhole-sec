@@ -39,6 +39,13 @@ blackhole bundle verify ./photos.bhb --password; echo $?
 `list` prints every file with its size. `verify` only checks the
 password/key and authenticity: exit 0 opens, 1 does not.
 
+## Root-owned files
+
+`create` never deletes or moves your source; it only reads it. If a
+bundle (or its directory) belongs to root, run the same command with
+sudo - blackhole says so in the error. Files created that way are
+root-owned too, including anything you extract.
+
 ## How it compares to zip
 
 | Problem with zip | What .bhb does |

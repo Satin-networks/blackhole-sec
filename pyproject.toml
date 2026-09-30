@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "blackhole-sec"
-version = "0.2.0"
+version = "0.2.1"
 description = "Offline phishing checks, encrypted vault, metadata shredder and secure .bhb archives."
 readme = "README.md"
 license = { text = "MIT" }

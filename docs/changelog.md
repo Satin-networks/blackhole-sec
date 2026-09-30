@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1
+
+- Permission errors on root-owned files now say so and suggest sudo.
+- `bundle create` prints that the source was left untouched.
+- Installer scripts go system-wide under sudo (`/usr/local`).
+
 ## 0.2.0
 
 - Color throughout: severity-colored signals, score bars, graded audit

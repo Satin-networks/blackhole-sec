@@ -162,26 +162,29 @@ def test_upgrade_no_network(monkeypatch):
     assert "PyPI" in r.output
 
 
-def test_bundle_create_unwritable_dir(tmp_path):
+def test_permission_hint_suggests_sudo(monkeypatch):
+    import errno
     import os
 
-    if os.geteuid() == 0:
-        import pytest
+    from blackhole_sec.cli import _friendly
 
-        pytest.skip("permission bits don't apply to root")
+    class FakeStat:
+        st_uid = 0
+
+    monkeypatch.setattr(os, "stat", lambda p: FakeStat())
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    e = OSError(errno.EACCES, "Permission denied", "/some/root/file")
+    assert "sudo" in _friendly("could not read x", e).message
+
+
+def test_bundle_create_says_source_untouched(tmp_path):
     src = tmp_path / "d"
     src.mkdir()
     (src / "f.txt").write_text("x")
-    denied = tmp_path / "noperm"
-    denied.mkdir()
-    denied.chmod(0o555)
-    try:
-        r = runner.invoke(main, ["bundle", "create", "--no-password", str(src), str(denied / "o.bhb")])
-    finally:
-        denied.chmod(0o755)
-    assert r.exit_code != 0
-    assert "permission denied" in r.output
-    assert "Traceback" not in r.output
+    r = runner.invoke(main, ["bundle", "create", "--no-password", str(src), str(tmp_path / "o.bhb")])
+    assert r.exit_code == 0, r.output
+    assert "left untouched" in r.output
+    assert (src / "f.txt").read_text() == "x"
 
 
 def test_bundle_extract_wrong_password_is_clean(tmp_path):

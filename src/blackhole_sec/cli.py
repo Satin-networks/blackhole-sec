@@ -166,7 +166,18 @@ def _friendly(action: str, e: OSError) -> click.ClickException:
     fix = "Check ownership and free space, or pick another path."
     if (e.errno or 0) == errno.ENOENT and "vault" in action:
         fix = "Run 'blackhole vault init' first, or point --vault at the right file."
+    if (e.errno or 0) in (errno.EACCES, errno.EPERM) and _owned_by_root(e.filename):
+        fix = "That file belongs to root. Retry the same command with sudo."
     return click.ClickException(f"{action} failed{where}: {reason}. {fix}")
+
+
+def _owned_by_root(filename: str | None) -> bool:
+    if not filename:
+        return False
+    try:
+        return os.stat(filename).st_uid == 0 and os.geteuid() != 0
+    except OSError:
+        return False
 
 
 def _need_writable_dir(path: str | Path, what: str) -> None:
@@ -747,6 +758,7 @@ def bundle_create(src, out, password, no_password):
     with _fs(f"could not create bundle {out}"):
         meta = create_bundle(src, out, pw)
     console.print(f"[green]bundle created[/] {meta['bundle']} ({meta['bytes_out']}B from {meta['bytes_in']}B tar, {meta['kdf']})")
+    console.print(f"[dim]source left untouched: {src}[/]")
     if meta.get("keyfile"):
         console.print(f"[yellow]KEEP SAFE:[/] keyfile {meta['keyfile']} (0600) - needed to extract")
 
