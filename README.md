@@ -112,6 +112,9 @@ pip install blackhole-sec
 
 # without touching pip yourself (venv + links handled for you)
 curl -fsSL https://raw.githubusercontent.com/Satin-networks/blackhole-sec/main/scripts/install.sh | bash
+
+# system-wide, so `sudo blackhole ...` works too
+curl -fsSL https://raw.githubusercontent.com/Satin-networks/blackhole-sec/main/scripts/install.sh | sudo bash
 ```
 
 From source:

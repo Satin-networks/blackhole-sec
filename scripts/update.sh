@@ -7,7 +7,12 @@
 # Same INSTALL_DIR knob as install.sh. (Or just run `blackhole upgrade`.)
 set -euo pipefail
 
-INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/share/blackhole-sec}"
+if [ "$(id -u)" -eq 0 ]; then
+  DEFAULT_INSTALL_DIR="/usr/local/share/blackhole-sec"
+else
+  DEFAULT_INSTALL_DIR="$HOME/.local/share/blackhole-sec"
+fi
+INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
 
 if [ ! -x "$INSTALL_DIR/bin/python" ]; then
   echo "error: no install found at $INSTALL_DIR (run install.sh first)" >&2

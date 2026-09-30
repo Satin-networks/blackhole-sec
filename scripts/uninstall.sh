@@ -6,8 +6,15 @@
 #   curl -fsSL https://raw.githubusercontent.com/Satin-networks/blackhole-sec/main/scripts/uninstall.sh | bash
 set -euo pipefail
 
-INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/share/blackhole-sec}"
-BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
+if [ "$(id -u)" -eq 0 ]; then
+  DEFAULT_INSTALL_DIR="/usr/local/share/blackhole-sec"
+  DEFAULT_BIN_DIR="/usr/local/bin"
+else
+  DEFAULT_INSTALL_DIR="$HOME/.local/share/blackhole-sec"
+  DEFAULT_BIN_DIR="$HOME/.local/bin"
+fi
+INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
+BIN_DIR="${BIN_DIR:-$DEFAULT_BIN_DIR}"
 
 rm -rf "$INSTALL_DIR"
 for name in blackhole blackhole-sec; do

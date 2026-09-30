@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # Install blackhole-sec without touching pip yourself.
 #
-# One-liner:
+# One-liner (user install):
 #   curl -fsSL https://raw.githubusercontent.com/Satin-networks/blackhole-sec/main/scripts/install.sh | bash
+#
+# System-wide (so `sudo blackhole ...` works too):
+#   curl -fsSL https://raw.githubusercontent.com/Satin-networks/blackhole-sec/main/scripts/install.sh | sudo bash
 #
 # Knobs (env vars):
 #   INSTALL_DIR  where the venv lives (default: ~/.local/share/blackhole-sec)
@@ -10,8 +13,15 @@
 #   VERSION      pin a release, e.g. 0.1.1 (default: latest from PyPI)
 set -euo pipefail
 
-INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/share/blackhole-sec}"
-BIN_DIR="${BIN_DIR:-$HOME/.local/bin}"
+if [ "$(id -u)" -eq 0 ]; then
+  DEFAULT_INSTALL_DIR="/usr/local/share/blackhole-sec"
+  DEFAULT_BIN_DIR="/usr/local/bin"
+else
+  DEFAULT_INSTALL_DIR="$HOME/.local/share/blackhole-sec"
+  DEFAULT_BIN_DIR="$HOME/.local/bin"
+fi
+INSTALL_DIR="${INSTALL_DIR:-$DEFAULT_INSTALL_DIR}"
+BIN_DIR="${BIN_DIR:-$DEFAULT_BIN_DIR}"
 VERSION="${VERSION:-}"
 
 need() {
