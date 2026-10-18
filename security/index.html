@@ -845,9 +845,10 @@
 <ul>
 <li><code>check</code> never fetches URLs. Input capped at 2048 chars, output defanged.
   Safe to paste that "free nitro" link.</li>
-<li>Stolen vault file: Argon2id (t=3, m=64MiB, p=4) plus AES-256-GCM. The
-  master is never stored. Files are 0600. Unlock is pass/fail against a
-  verifier.</li>
+<li>Stolen vault file: Argon2id (512 MiB, 8 passes by default, p=4) plus
+  AES-256-GCM. The master is never stored. Files are 0600. Unlock is
+  pass/fail against a verifier. <code>vault passwd</code> re-keys older vaults onto
+  the current default.</li>
 <li>Posting photos: <code>clean</code> writes a new file, the original stays put.
   <code>verify</code> exits non-zero while sensitive tags remain.</li>
 <li><code>.bhb</code> archives encrypt names and contents as one blob. Password

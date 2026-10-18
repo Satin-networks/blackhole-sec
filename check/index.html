@@ -924,7 +924,7 @@ clicked by accident.</p>
 </tr>
 </tbody>
 </table>
-<p>Confidence (VERY_LOW → HIGH) is based on how many signals fired.
+<p>Confidence (VERY_LOW to HIGH) is based on how many signals fired.
 Every signal prints its weight, the evidence, and a MITRE tag like
 <code>T1566.002</code> so you can look it up.</p>
 <h2 id="batch-and-scripts">Batch and scripts<a class="headerlink" href="#batch-and-scripts" title="Permanent link">&para;</a></h2>
@@ -945,7 +945,7 @@ blackhole<span class="w"> </span>check<span class="w"> </span><span class="s2">"
 <p>Short version: IP hosts, punycode and homoglyphs, shorteners, odd TLDs,
 long URLs, deep paths, tons of subdomains or hyphens, <code>@</code> tricks, missing
 https, weird ports, heavy percent-encoding, high entropy, lure words
-(<code>login</code>, <code>nitro</code>, <code>wallet</code>…), <code>.exe</code>-style paths, open-redirect params,
+(<code>login</code>, <code>nitro</code>, <code>wallet</code>), <code>.exe</code>-style paths, open-redirect params,
 brand names in the wrong domain, near-miss typos (<code>paypa1</code>), free-hosting
 domains, digit-heavy names, and embedded credentials.</p>
 <p>Long version lives in <code>src/blackhole_sec/check/features.py</code> - it's one

@@ -927,7 +927,8 @@ stale (&gt;1y): ['bank-backup-code']
 <p>Change the reused and short ones first. That's the whole game.</p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Master + random 16-byte salt go through Argon2id (t=3, m=64MiB, p=4)
+<li>Master + random 16-byte salt go through Argon2id (512 MiB, 8 passes
+  by default; older vaults keep their own numbers until <code>vault passwd</code>)
   into a 32-byte key.</li>
 <li>Everything is one JSON blob encrypted with AES-256-GCM. The header
   (magic, params, salt, nonce) is authenticated as AAD.</li>
