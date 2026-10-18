@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.3
+
+- Generated passwords retry until they pass the same policy the bundle
+  tools enforce; a rare draw like `%PPpt` used to come back "password
+  rejected" from `bundle create --generate` right after being printed.
+
 ## 0.4.2
 
 - `blackhole upgrade` checks what pip actually installed before claiming
