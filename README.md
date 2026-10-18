@@ -5,8 +5,8 @@
 # blackhole-sec
 
 A small offline toolkit I actually use: check sketchy links, keep passwords
-in an encrypted vault, strip photo metadata before posting, and pack
-directories into encrypted `.bhb` files instead of zip.
+and files in an encrypted vault, strip photo metadata before posting, and
+pack directories into encrypted `.bhb` files instead of zip.
 
 No accounts. No network calls. Nothing leaves your machine.
 
@@ -115,6 +115,11 @@ re-prompts up to three times, then gives up. Extraction rejects
 absolute paths, `..`, and symlinks. There is a
 [head-to-head with age and 7-Zip](https://satin-networks.github.io/blackhole-sec/comparison/)
 if you are picking a tool.
+
+### Triage: a link and a file at once
+
+When a DM has both, `intake` scores the link and checks the file's
+metadata in one pass:
 
 ```bash
 blackhole intake "http://evil.tk/login" ./photo.jpg  # link + file in one go

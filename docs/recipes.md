@@ -31,6 +31,25 @@ blackhole vault set github --username alice --generate 24
 blackhole vault audit   # run monthly, fix reused and short ones first
 ```
 
+## Keeping a document in the vault
+
+```bash
+blackhole vault add-file ~/passport-scan.pdf
+blackhole vault add-file ~/keys/api.pem --name stripe-key
+blackhole vault list                                  # shows it as kind 'file'
+blackhole vault export passport-scan.pdf --out ~/back # checksum verified
+# the copy inside goes away with: blackhole vault rm passport-scan.pdf
+```
+
+## A backup bundle that needs two things
+
+```bash
+blackhole bundle create ./photos ./photos.bhb --generate --keyfile ~/bh-photos.key
+# the generated password prints once: put it in the vault
+# copy ~/bh-photos.key to a USB stick - not the same disk as the bundle
+blackhole bundle extract ./photos.bhb ./restored --keyfile ~/bh-photos.key
+```
+
 ## Sending a folder to a friend
 
 ```bash

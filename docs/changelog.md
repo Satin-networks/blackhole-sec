@@ -17,6 +17,8 @@
   work factor for the machine it will live on.
 - `vault list` shows each entry's kind and a real date. `vault get` on
   a stored file points you at `vault export`.
+- `blackhole upgrade` no longer dies on externally managed pythons
+  (PEP 668); it falls back to a user-site install with pip.
 - The readme and docs carry a logo now.
 
 ## 0.3.0
