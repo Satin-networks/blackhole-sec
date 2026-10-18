@@ -906,16 +906,11 @@ def _open_bundle(bundle, password, keyfile, op):
             raise click.ClickException("this bundle needs its keyfile too; pass --keyfile PATH")
         if not Path(keyfile).expanduser().is_file():
             raise click.ClickException(f"no keyfile at {keyfile}")
-    if sys.stdin.isatty() and info["m"] >= 256 * 1024:
-        console.print(
-            f"[dim]argon2id key derivation: {info['m'] // 1024} MiB, {info['t']} passes."
-            " A few seconds is normal, that's the point.[/]"
-        )
     pw = _prompt_password("Bundle password: ")
     if pw is None:
-        raise click.ClickException(
-            "this bundle is encrypted and a password is needed; run it in a terminal"
-        )
+        raise click.Abort()
+    if not pw:
+        raise click.ClickException("no password given, nothing was opened")
     tries = 3
     for attempt in range(tries):
         try:
@@ -926,7 +921,9 @@ def _open_bundle(bundle, password, keyfile, op):
                 raise click.ClickException(str(e)) from e
             pw = _prompt_password(f"wrong password ({left} left): ")
             if pw is None:
-                raise click.ClickException(str(e)) from e
+                raise click.Abort()
+            if not pw:
+                raise click.ClickException("no password given, nothing was opened")
 
 
 @bundle_grp.command(

@@ -245,7 +245,7 @@ def test_bundle_extract_without_password_input_is_clean(tmp_path, monkeypatch):
     create_bundle(src, bhb, password="right-password-1", preset="light")
     r = runner.invoke(main, ["bundle", "extract", str(bhb), str(tmp_path / "out")])
     assert r.exit_code != 0
-    assert "password" in r.output.lower()
+    assert "Aborted" in r.output
     assert "Traceback" not in r.output
 
 
@@ -311,9 +311,14 @@ def test_bundle_verify_needs_password_is_clean(tmp_path, monkeypatch):
     create_bundle(src, bhb, password="right-password-1", preset="light")
     r = runner.invoke(main, ["bundle", "verify", str(bhb)])
     assert r.exit_code == 1
-    assert "FAIL" in r.output
-    assert "password" in r.output.lower()
+    assert "Aborted" in r.output
     assert "Traceback" not in r.output
+
+    monkeypatch.setattr(cli, "_master", lambda prompt="": "")
+    r = runner.invoke(main, ["bundle", "verify", str(bhb)])
+    assert r.exit_code == 1
+    assert "FAIL" in r.output
+    assert "no password given" in " ".join(r.output.split())
 
 
 def test_bundle_empty_dirs_survive(tmp_path):
@@ -417,6 +422,46 @@ def test_bundle_extract_auto_prompts(tmp_path, monkeypatch):
     assert r.exit_code == 0, r.output
     assert (out / "s.txt").read_text() == "s"
     assert calls and "Bundle password" in calls[0]
+
+
+def test_bundle_extract_empty_password_is_clean(tmp_path, monkeypatch):
+    """Enter on the prompt should not come out as 'needs --password'."""
+    from blackhole_sec import cli
+
+    bhb = _pw_bundle(tmp_path)
+    monkeypatch.setattr(cli, "_master", lambda prompt="": "")
+    r = runner.invoke(main, ["bundle", "extract", str(bhb), str(tmp_path / "out")])
+    assert r.exit_code != 0
+    assert "no password given" in r.output
+    assert "--password" not in r.output
+
+
+def test_bundle_extract_cancelled_prompt_aborts_cleanly(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    bhb = _pw_bundle(tmp_path)
+
+    def cancelled(prompt=""):
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(cli, "_master", cancelled)
+    r = runner.invoke(main, ["bundle", "extract", str(bhb), str(tmp_path / "out")])
+    assert r.exit_code != 0
+    assert "Aborted" in r.output
+    assert "--password" not in r.output
+    assert "Traceback" not in r.output
+
+
+def test_bundle_extract_empty_on_retry_is_clean(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    bhb = _pw_bundle(tmp_path)
+    answers = iter(["wrong-password-1", ""])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["bundle", "extract", str(bhb), str(tmp_path / "out")])
+    assert r.exit_code != 0
+    assert "no password given" in r.output
+    assert "--password" not in r.output
 
 
 def test_bundle_extract_reprompts_on_wrong_password(tmp_path, monkeypatch):
