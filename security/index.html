@@ -850,8 +850,11 @@
   verifier.</li>
 <li>Posting photos: <code>clean</code> writes a new file, the original stays put.
   <code>verify</code> exits non-zero while sensitive tags remain.</li>
-<li><code>.bhb</code> archives encrypt names and contents as one blob. Extraction
-  skips absolute paths, <code>..</code>, symlinks and device nodes.</li>
+<li><code>.bhb</code> archives encrypt names and contents as one blob. Password
+  guesses run through Argon2id at 1 GiB and 8 passes by default
+  (<code>--kdf paranoid</code> roughly triples that; the header carries the
+  params, old bundles keep their own). Extraction skips absolute
+  paths, <code>..</code>, symlinks and device nodes.</li>
 </ul>
 <h2 id="not-covered">Not covered<a class="headerlink" href="#not-covered" title="Permanent link">&para;</a></h2>
 <ul>
@@ -859,7 +862,8 @@
   open. I lock after every command and clear the clipboard best-effort,
   but no local vault survives someone reading live RAM.</li>
 <li>Weak passwords. Argon2id slows guessing, it doesn't rescue <code>123456</code>.
-  Use <code>vault gen</code>.</li>
+  Bundle creation refuses the worst of them, and <code>--generate</code>/<code>vault gen</code>
+  hand you a real one.</li>
 <li>Malware. <code>clean</code> strips metadata, it doesn't sandbox anything.</li>
 <li>Print-shop redaction. Image EXIF is fully stripped; PDFs are copied
   with a report of what's left. For legal-grade work use a dedicated

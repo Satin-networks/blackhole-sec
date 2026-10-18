@@ -933,6 +933,9 @@ stale (&gt;1y): ['bank-backup-code']
   (magic, params, salt, nonce) is authenticated as AAD.</li>
 <li>Unlock tries to decrypt a known verifier. Wrong password just fails.</li>
 <li>The master is never written anywhere. Each command locks when it ends.</li>
+<li>Generated passphrases draw from the EFF large wordlist (7776 words:
+  five words is ~64 bits). Generated passwords default to 20 chars
+  mixing letters, digits and symbols (~120 bits).</li>
 </ul>
 <h2 id="moving-machines">Moving machines<a class="headerlink" href="#moving-machines" title="Permanent link">&para;</a></h2>
 <p>Copy the <code>.db</code> file. That's it. Back it up like you'd back up anything

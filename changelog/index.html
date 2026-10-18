@@ -718,6 +718,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#030" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.3.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#022" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -807,6 +818,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#030" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0.3.0
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#022" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -882,6 +904,25 @@
 
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
+<h2 id="030">0.3.0<a class="headerlink" href="#030" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>.bhb</code> bundles are much harder to crack. Password mode now runs
+  Argon2id at 1 GiB and 8 passes by default - ~42x the work of 0.2.x
+  per guess - and <code>bundle create --kdf paranoid</code> roughly triples that
+  again (~128x). Unlock takes a few seconds now; that is the point.</li>
+<li>Old bundles keep opening unchanged: the work factor lives in the
+  header as t/m/p, and the reader derives with whatever it finds.
+  Absurd header values are rejected before any memory is spent.</li>
+<li>Weak bundle passwords are refused at creation (12+ chars, three
+  classes under 16, no top-list classics, no keyboard walks) and
+  <code>bundle create --generate</code> prints a fresh 24-char password for you.</li>
+<li><code>bundle extract</code>/<code>list</code>/<code>verify</code> detect encrypted bundles and prompt
+  for the password themselves; a wrong password re-prompts up to three
+  tries. <code>--password</code> still works, it just stopped being required.</li>
+<li>Passphrase generation now draws from the EFF large wordlist (7776
+  words, ~64 bits for five) instead of a 26-word rump.</li>
+<li>Derived bundle keys are zeroed after use (best effort in Python).</li>
+</ul>
 <h2 id="022">0.2.2<a class="headerlink" href="#022" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>--no-password</code> now packs plain and unencrypted: no keyfile, opens

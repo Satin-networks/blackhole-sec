@@ -970,12 +970,14 @@ blackhole<span class="w"> </span>shred<span class="w"> </span>shred<span class="
 <h2 id="blackhole-bundle">blackhole bundle ...<a class="headerlink" href="#blackhole-bundle" title="Permanent link">&para;</a></h2>
 <p><code>create</code> packs SRC_DIR into OUT_FILE (<code>.bhb</code>), <code>extract</code> unpacks it,
 <code>list</code> shows contents without extracting, <code>verify</code> checks the
-password/key with exit 0/1. Password mode prompts; <code>--no-password</code>
-packs plain with no encryption.</p>
-<div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb
-blackhole<span class="w"> </span>bundle<span class="w"> </span>extract<span class="w"> </span>./photos.bhb<span class="w"> </span>./restored<span class="w"> </span>--password
-blackhole<span class="w"> </span>bundle<span class="w"> </span>list<span class="w"> </span>./photos.bhb<span class="w"> </span>--password
-blackhole<span class="w"> </span>bundle<span class="w"> </span>verify<span class="w"> </span>./photos.bhb<span class="w"> </span>--password<span class="p">;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
+password/key with exit 0/1. Encrypted bundles prompt for the password
+on their own; <code>--kdf light|hard|paranoid</code> sets how expensive a guess
+is (1 GiB x 8 by default); <code>--generate</code> makes a strong password for
+you; <code>--no-password</code> packs plain with no encryption.</p>
+<div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb<span class="w"> </span>--generate
+blackhole<span class="w"> </span>bundle<span class="w"> </span>extract<span class="w"> </span>./photos.bhb<span class="w"> </span>./restored
+blackhole<span class="w"> </span>bundle<span class="w"> </span>list<span class="w"> </span>./photos.bhb
+blackhole<span class="w"> </span>bundle<span class="w"> </span>verify<span class="w"> </span>./photos.bhb<span class="p">;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
 </code></pre></div>
 <h2 id="blackhole-intake-url-file-json">blackhole intake URL FILE [--json]<a class="headerlink" href="#blackhole-intake-url-file-json" title="Permanent link">&para;</a></h2>
 <p>One-shot triage for a DM with a link and an attachment: prints the link
