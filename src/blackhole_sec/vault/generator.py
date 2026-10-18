@@ -11,6 +11,8 @@ import string
 from functools import lru_cache
 from importlib.resources import files
 
+from ..policy import password_problems
+
 AMBIGUOUS = set("l1I0O")
 
 _WORDLIST_PACKAGE = "blackhole_sec"
@@ -41,7 +43,11 @@ def generate_password(length: int = 20, symbols: bool = True, no_ambiguous: bool
     alpha = string.ascii_letters + string.digits + ("!@#$%^&*-_+=?" if symbols else "")
     if no_ambiguous:
         alpha = "".join(c for c in alpha if c not in AMBIGUOUS)
-    return "".join(secrets.choice(alpha) for _ in range(length))
+    for _ in range(100):
+        pw = "".join(secrets.choice(alpha) for _ in range(length))
+        if not password_problems(pw):
+            return pw
+    return pw  # a repetitive draw that persists is the RNG's fault, not a reason to hang
 
 
 def generate_passphrase(words: int = 5) -> str:

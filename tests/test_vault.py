@@ -166,6 +166,21 @@ def test_generators():
         generate_password(4)
 
 
+def test_generate_password_skips_policy_rejects(monkeypatch):
+    from blackhole_sec.vault import generator
+
+    draws = iter("a" * 12 + "2Kx!9Qm#4Tvz")
+    monkeypatch.setattr(generator.secrets, "choice", lambda alpha: next(draws))
+    assert generate_password(12) == "2Kx!9Qm#4Tvz"
+
+
+def test_generate_password_gives_up_gracefully(monkeypatch):
+    from blackhole_sec.vault import generator
+
+    monkeypatch.setattr(generator.secrets, "choice", lambda alpha: "a")
+    assert generate_password(12) == "a" * 12
+
+
 def test_passphrase_wordlist_is_the_full_eff_list():
     from blackhole_sec.vault.generator import eff_words
 
