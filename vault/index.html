@@ -578,6 +578,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#storing-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storing files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#health-check" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -829,6 +840,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#storing-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storing files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#health-check" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -914,6 +936,22 @@ blackhole<span class="w"> </span>vault<span class="w"> </span>list
 <span class="c1"># fresh password without storing anything</span>
 blackhole<span class="w"> </span>vault<span class="w"> </span>gen<span class="w"> </span>--length<span class="w"> </span><span class="m">24</span>
 </code></pre></div>
+<h2 id="storing-files">Storing files<a class="headerlink" href="#storing-files" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><span class="c1"># keep a copy of a file in the vault (64 MiB cap)</span>
+blackhole<span class="w"> </span>vault<span class="w"> </span>add-file<span class="w"> </span>~/tax-2025.pdf
+
+<span class="c1"># give it a shorter name if you like</span>
+blackhole<span class="w"> </span>vault<span class="w"> </span>add-file<span class="w"> </span>~/keys/api.pem<span class="w"> </span>--name<span class="w"> </span>stripe-key
+
+<span class="c1"># write it back out (checksum checked, chmod 0600)</span>
+blackhole<span class="w"> </span>vault<span class="w"> </span><span class="nb">export</span><span class="w"> </span>stripe-key<span class="w"> </span>--out<span class="w"> </span>~/keys/
+
+<span class="c1"># overwrite a copy you already exported</span>
+blackhole<span class="w"> </span>vault<span class="w"> </span><span class="nb">export</span><span class="w"> </span>tax-2025.pdf<span class="w"> </span>--force
+</code></pre></div>
+<p><code>vault list</code> shows stored files with their size and original name,
+<code>vault rm</code> deletes the copy inside the vault (the file you added stays
+untouched), and <code>vault passwd</code> re-wraps everything under the new master.</p>
 <h2 id="health-check">Health check<a class="headerlink" href="#health-check" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>vault<span class="w"> </span>audit
 </code></pre></div>
@@ -932,12 +970,16 @@ stale (&gt;1y): ['bank-backup-code']
   (magic, params, salt, nonce) is authenticated as AAD.</li>
 <li>Unlock tries to decrypt a known verifier. Wrong password just fails.</li>
 <li>The master is never written anywhere. Each command locks when it ends.</li>
+<li>Stored files live in a <code>&lt;vault&gt;.files</code> directory beside the vault,
+  each encrypted under its own HKDF subkey of the vault key. The vault
+  file itself stays small, so ordinary lookups stay quick.</li>
 <li>Generated passphrases draw from the EFF large wordlist (7776 words:
   five words is ~64 bits). Generated passwords default to 20 chars
   mixing letters, digits and symbols (~120 bits).</li>
 </ul>
 <h2 id="moving-machines">Moving machines<a class="headerlink" href="#moving-machines" title="Permanent link">&para;</a></h2>
-<p>Copy the <code>.db</code> file. That's it. Back it up like you'd back up anything
+<p>Copy the <code>.db</code> file - and the matching <code>.files</code> directory if you stored
+any files in it. That's it. Back both up like you'd back up anything
 precious - the backup is still encrypted, safe to keep on a USB stick.</p>
 
 
