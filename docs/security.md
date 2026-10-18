@@ -9,14 +9,15 @@ How I think about this, plainly: what it covers and what it doesn't.
 - Stolen vault file: Argon2id (512 MiB, 8 passes by default, p=4) plus
   AES-256-GCM. The master is never stored. Files are 0600. Unlock is
   pass/fail against a verifier. `vault passwd` re-keys older vaults onto
-  the current default.
+  the current default, stored files included.
 - Posting photos: `clean` writes a new file, the original stays put.
   `verify` exits non-zero while sensitive tags remain.
 - `.bhb` archives encrypt names and contents as one blob. Password
   guesses run through Argon2id at 1 GiB and 8 passes by default
   (`--kdf paranoid` roughly triples that; the header carries the
-  params, old bundles keep their own). Extraction skips absolute
-  paths, `..`, symlinks and device nodes.
+  params, old bundles keep their own). With `--keyfile`, a stolen
+  bundle cannot be tested offline at all without that file. Extraction
+  skips absolute paths, `..`, symlinks and device nodes.
 
 ## Not covered
 

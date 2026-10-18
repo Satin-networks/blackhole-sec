@@ -6,12 +6,17 @@ How I think about this, plainly: what it covers and what it doesn't.
 
 - `check` never fetches URLs. Input capped at 2048 chars, output defanged.
   Safe to paste that "free nitro" link.
-- Stolen vault file: Argon2id (t=3, m=64MiB, p=4) + AES-256-GCM. The master
-  is never stored. Files are 0600. Unlock is pass/fail against a verifier.
+- Stolen vault file: Argon2id (512 MiB, 8 passes by default, p=4) + AES-256-GCM.
+  The master is never stored. Files are 0600. Unlock is pass/fail against
+  a verifier, and `vault passwd` re-keys older vaults onto the current
+  default. Files stored in the vault get their own keys under the same
+  master.
 - Posting photos: `clean` writes a new file, the original stays put.
   `verify` exits non-zero while sensitive tags remain.
-- `.bhb` archives encrypt names and contents as one blob. Extraction skips
-  absolute paths, `..`, symlinks and device nodes.
+- `.bhb` archives encrypt names and contents as one blob. With
+  `--keyfile`, opening needs the password and the file both, so a stolen
+  bundle cannot be tested offline at all. Extraction skips absolute
+  paths, `..`, symlinks and device nodes.
 
 ## Not covered
 
@@ -19,7 +24,8 @@ How I think about this, plainly: what it covers and what it doesn't.
   I lock after every command and clear the clipboard best-effort, but no
   local vault survives someone reading live RAM.
 - Weak passwords. Argon2id slows guessing, it doesn't rescue `123456`.
-  Use `vault gen`.
+  The vault warns about weak masters, bundle creation refuses sloppy
+  passwords outright, and `vault gen` / `--generate` hand you a real one.
 - Malware. `clean` strips metadata, it doesn't sandbox anything.
 - Print-shop redaction. Image EXIF is fully stripped; PDFs are copied with
   a report of what's left. For legal-grade work use a dedicated tool.
