@@ -152,6 +152,25 @@ def test_upgrade_runs_pip(monkeypatch):
     assert calls and calls[0][-2:] == ["--upgrade", "blackhole-sec"]
 
 
+def test_upgrade_never_downgrades(monkeypatch):
+    from blackhole_sec import cli
+
+    def boom(cmd, **kwargs):
+        raise AssertionError("pip should not run when the install is ahead")
+
+    monkeypatch.setattr(cli, "_installed_version", lambda: "0.4.0")
+    monkeypatch.setattr(cli, "_latest_pypi_version", lambda timeout=10: "0.3.0")
+    monkeypatch.setattr(cli.subprocess, "run", boom)
+    r = runner.invoke(main, ["upgrade"])
+    assert r.exit_code == 0, r.output
+    assert "nothing to upgrade" in r.output
+    assert "0.4.0" in r.output and "0.3.0" in r.output
+
+    r = runner.invoke(main, ["upgrade", "--check"])
+    assert r.exit_code == 0, r.output
+    assert "0.3.0" in r.output
+
+
 def test_upgrade_handles_externally_managed_python(monkeypatch):
     import subprocess
 

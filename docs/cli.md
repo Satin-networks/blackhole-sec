@@ -84,7 +84,10 @@ machine-readable object.
 ## blackhole upgrade [--check]
 
 Fetches the latest release from PyPI and installs it with pip. The one
-command here that needs network. `--check` only compares versions.
+command here that needs network. `--check` only compares versions. If
+your install is already newer than PyPI (a local build, say), it says
+so and does nothing; on externally managed pythons it falls back to a
+user-site install.
 
 ```bash
 blackhole upgrade --check

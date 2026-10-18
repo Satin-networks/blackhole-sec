@@ -145,6 +145,19 @@ def _installed_version() -> str:
         return __version__
 
 
+def _version_key(v: str) -> tuple[int, ...]:
+    """Loose numeric compare for version strings; enough for x.y.z releases."""
+    parts: list[int] = []
+    for chunk in v.split("."):
+        digits = ""
+        for ch in chunk:
+            if not ch.isdigit():
+                break
+            digits += ch
+        parts.append(int(digits) if digits else 0)
+    return tuple(parts)
+
+
 def _latest_pypi_version(timeout: int = 10) -> str:
     import urllib.request
 
@@ -1158,15 +1171,21 @@ def upgrade_cmd(check):
     """Upgrade to the latest release from PyPI (uses pip under the hood).
 
     Needs network for this one command; everything else stays offline.
-    If this python has no pip, reinstall with the curl installer in the README.
+    If the installed version is already newer than PyPI (a local build),
+    it says so and stops. If this python has no pip, reinstall with the
+    curl installer in the README.
     """
     current = _installed_version()
     try:
         latest = _latest_pypi_version()
     except Exception:
         raise click.ClickException("could not reach PyPI, check your connection and try again") from None
-    if current == latest:
-        console.print(f"[green]already on the latest ({current})[/]")
+    if _version_key(current) >= _version_key(latest):
+        if current == latest:
+            console.print(f"[green]already on the latest ({current})[/]")
+        else:
+            console.print(f"[green]nothing to upgrade[/]: installed {current}, PyPI has {latest}")
+            console.print("[dim]you are ahead of the release; a local build usually means exactly this[/]")
         return
     if check:
         console.print(f"installed: {current}  latest: {latest}  (run without --check to upgrade)")
