@@ -7,12 +7,26 @@ import os
 from argon2.low_level import Type, hash_secret_raw
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-DEFAULT_T = 3          # time cost (OWASP recommended >=3 for interactive)
-DEFAULT_M = 64 * 1024  # 64 MiB
-DEFAULT_P = 4
+# Vault opens on every command, so the default stays below the bundle
+# default. Params live in the file; old vaults keep their own numbers.
+KDF_PRESETS = {
+    "light": {"t": 3, "m": 64 * 1024, "p": 4},      # the old default
+    "hard": {"t": 8, "m": 512 * 1024, "p": 4},      # default now
+    "paranoid": {"t": 12, "m": 2048 * 1024, "p": 4},  # ~128x light
+}
+DEFAULT_PRESET = "hard"
+DEFAULT_T = KDF_PRESETS[DEFAULT_PRESET]["t"]
+DEFAULT_M = KDF_PRESETS[DEFAULT_PRESET]["m"]
+DEFAULT_P = KDF_PRESETS[DEFAULT_PRESET]["p"]
 SALT_LEN = 16
 NONCE_LEN = 12
 KEY_LEN = 32
+
+
+def preset_params(preset: str) -> dict:
+    if preset not in KDF_PRESETS:
+        raise ValueError(f"unknown kdf preset {preset!r}; pick one of: {', '.join(KDF_PRESETS)}")
+    return dict(KDF_PRESETS[preset])
 
 
 def generate_salt(n: int = SALT_LEN) -> bytes:

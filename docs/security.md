@@ -6,9 +6,10 @@ How I think about this, plainly: what it covers and what it doesn't.
 
 - `check` never fetches URLs. Input capped at 2048 chars, output defanged.
   Safe to paste that "free nitro" link.
-- Stolen vault file: Argon2id (t=3, m=64MiB, p=4) plus AES-256-GCM. The
-  master is never stored. Files are 0600. Unlock is pass/fail against a
-  verifier.
+- Stolen vault file: Argon2id (512 MiB, 8 passes by default, p=4) plus
+  AES-256-GCM. The master is never stored. Files are 0600. Unlock is
+  pass/fail against a verifier. `vault passwd` re-keys older vaults onto
+  the current default.
 - Posting photos: `clean` writes a new file, the original stays put.
   `verify` exits non-zero while sensitive tags remain.
 - `.bhb` archives encrypt names and contents as one blob. Password

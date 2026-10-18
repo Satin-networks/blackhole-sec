@@ -57,7 +57,8 @@ Change the reused and short ones first. That's the whole game.
 
 ## How it works
 
-- Master + random 16-byte salt go through Argon2id (t=3, m=64MiB, p=4)
+- Master + random 16-byte salt go through Argon2id (512 MiB, 8 passes
+  by default; older vaults keep their own numbers until `vault passwd`)
   into a 32-byte key.
 - Everything is one JSON blob encrypted with AES-256-GCM. The header
   (magic, params, salt, nonce) is authenticated as AAD.

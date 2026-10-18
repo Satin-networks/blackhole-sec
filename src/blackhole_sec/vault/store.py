@@ -10,6 +10,7 @@ from pathlib import Path
 from .crypto import (
     DEFAULT_M,
     DEFAULT_P,
+    DEFAULT_PRESET,
     DEFAULT_T,
     b64d,
     b64e,
@@ -17,6 +18,7 @@ from .crypto import (
     derive_key,
     encrypt_blob,
     generate_salt,
+    preset_params,
 )
 
 VAULT_VERSION = 1
@@ -40,35 +42,40 @@ class VaultLocked(Exception):
 class Vault:
     def __init__(self, path: str | Path):
         self.path = Path(path).expanduser()
-        self._key: bytes | None = None
+        self._key: bytearray | None = None
         self._entries: dict[str, VaultEntry] = {}
         self._salt: bytes | None = None
         self._params: dict = {}
 
     @classmethod
-    def create(cls, path: str | Path, master: str) -> Vault:
+    def create(cls, path: str | Path, master: str, preset: str = DEFAULT_PRESET,
+               t: int | None = None, m: int | None = None, p: int | None = None) -> Vault:
         v = cls(path)
+        params = preset_params(preset)
+        if t is not None:
+            params["t"] = t
+        if m is not None:
+            params["m"] = m
+        if p is not None:
+            params["p"] = p
         salt = generate_salt()
-        key = derive_key(master, salt)
-        v._key, v._salt = key, salt
-        v._params = {"t": DEFAULT_T, "m": DEFAULT_M, "p": DEFAULT_P}
+        v._key = bytearray(derive_key(master, salt, params["t"], params["m"], params["p"]))
+        v._salt, v._params = salt, params
         v._entries = {}
         v._save()
-        _wipe(key)
-        v._key = derive_key(master, salt, DEFAULT_T, DEFAULT_M, DEFAULT_P)
         return v
 
     def unlock(self, master: str) -> None:
         raw = json.loads(self.path.read_text())
         salt = b64d(raw["salt"])
         p = raw.get("kdf_params", {})
-        key = derive_key(master, salt, p.get("t", DEFAULT_T), p.get("m", DEFAULT_M), p.get("p", DEFAULT_P))
+        key = bytearray(derive_key(master, salt, p.get("t", DEFAULT_T), p.get("m", DEFAULT_M), p.get("p", DEFAULT_P)))
         try:
-            pt = decrypt_blob(key, b64d(raw["nonce"]), b64d(raw["ct"]))
+            pt = decrypt_blob(bytes(key), b64d(raw["nonce"]), b64d(raw["ct"]))
             payload = json.loads(pt.decode())
         except Exception:
             _wipe(key)
-            raise VaultLocked("wrong master password or corrupted vault")
+            raise VaultLocked("wrong master password or corrupted vault") from None
         if payload.get("verifier") != VERIFIER:
             _wipe(key)
             raise VaultLocked("wrong master password or corrupted vault")
@@ -94,7 +101,7 @@ class Vault:
         assert self._key and self._salt
         payload = {"verifier": VERIFIER,
                    "entries": {k: asdict(e) for k, e in self._entries.items()}}
-        nonce, ct = encrypt_blob(self._key, json.dumps(payload).encode())
+        nonce, ct = encrypt_blob(bytes(self._key), json.dumps(payload).encode())
         raw = {"version": VAULT_VERSION, "kdf": "argon2id",
                "kdf_params": self._params, "salt": b64e(self._salt),
                "nonce": b64e(nonce), "ct": b64e(ct)}
@@ -130,16 +137,16 @@ class Vault:
         self._require_open()
         return sorted(self._entries)
 
-    def change_master(self, new_master: str) -> None:
+    def change_master(self, new_master: str, preset: str = DEFAULT_PRESET) -> None:
+        """Re-key with a fresh salt. Also upgrades the KDF to the current default
+        unless a preset is given, so 'vault passwd' is the migration path for old vaults."""
         self._require_open()
         salt = generate_salt()
-        self._salt = salt
+        params = preset_params(preset)
+        self._salt, self._params = salt, params
         if self._key:
             _wipe(self._key)
-        self._key = derive_key(new_master, salt,
-                               self._params.get("t", DEFAULT_T),
-                               self._params.get("m", DEFAULT_M),
-                               self._params.get("p", DEFAULT_P))
+        self._key = bytearray(derive_key(new_master, salt, params["t"], params["m"], params["p"]))
         self._save()
 
     def audit(self) -> dict:
@@ -161,8 +168,6 @@ class Vault:
 
 
 def _wipe(b: bytearray | bytes) -> None:
-    try:
-        for i in range(len(b)):
-            b[i] = 0  # type: ignore
-    except Exception:
-        pass
+    """Best effort: zero a bytearray in place. Bytes cannot be wiped in Python."""
+    if isinstance(b, bytearray):
+        b[:] = b"\x00" * len(b)
