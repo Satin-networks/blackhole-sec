@@ -12,8 +12,8 @@ Everything runs offline. Nothing phones home.
 
 -   :material-lock: **vault**
 
-    Passwords in one encrypted file on your disk.
-    Argon2id + AES-256-GCM.
+    Passwords and files in one encrypted store on your
+    disk. Argon2id + AES-256-GCM.
 
 -   :material-image-off: **shred**
 
@@ -21,8 +21,8 @@ Everything runs offline. Nothing phones home.
 
 -   :material-package-variant-closed: **bundle**
 
-    Encrypted `.bhb` archives instead of zip.
-    Names and contents hidden.
+    Encrypted `.bhb` archives instead of zip. Names
+    and contents hidden; optional keyfile second factor.
 
 </div>
 

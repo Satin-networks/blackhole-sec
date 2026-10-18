@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
 - `bundle create --keyfile PATH` adds a second factor: the bundle key
   becomes Argon2id(password) mixed with the keyfile's hash, so opening
