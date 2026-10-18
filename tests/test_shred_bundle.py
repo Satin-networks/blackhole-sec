@@ -106,6 +106,36 @@ def test_bundle_legacy_keyfile_still_opens(tmp_path: Path):
     assert (out / "o.txt").read_text() == "legacy"
 
 
+def test_bundle_keyfile_two_factor(tmp_path: Path):
+    from blackhole_sec.bundle import NeedsKeyfile, bundle_kind
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "k.txt").write_text("two factor")
+    bhb = tmp_path / "k.bhb"
+    kf = tmp_path / "bh.key"
+    kf.write_bytes(b"keyfile bytes")
+
+    with pytest.raises(ValueError):
+        create_bundle(src, bhb, password=None, keyfile=kf)
+
+    meta = create_bundle(src, bhb, password="bundle-pass-123!", preset="light", keyfile=kf)
+    assert meta["keyfile"] == str(kf)
+    assert bundle_kind(bhb) == "argon2id+keyfile"
+
+    with pytest.raises(NeedsKeyfile):
+        read_bundle(bhb, "bundle-pass-123!")
+    other = tmp_path / "other.key"
+    other.write_bytes(b"different bytes")
+    with pytest.raises(WrongPassword):
+        read_bundle(bhb, "bundle-pass-123!", keyfile=other)
+    with pytest.raises(WrongPassword):
+        read_bundle(bhb, "not-the-password-1", keyfile=kf)
+    out = tmp_path / "out"
+    assert extract_bundle(bhb, out, "bundle-pass-123!", keyfile=kf) == ["k.txt"]
+    assert (out / "k.txt").read_text() == "two factor"
+
+
 def test_bundle_zipslip_rejected(tmp_path: Path):
     import io
     import tarfile

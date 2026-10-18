@@ -1,9 +1,13 @@
 """Secure directory archives (.bhb).
 
-Two ways to pack a directory:
+Three ways to pack a directory:
 
 - With a password: tar.gz encrypted whole with Argon2id -> AES-256-GCM.
   Names, contents, everything hidden. Only blackhole opens it.
+- With a password and --keyfile: the same, plus a second factor. The
+  key is Argon2id(password) mixed (HKDF) with SHA-256(keyfile bytes),
+  so opening needs both. A leaked bundle alone cannot even be attacked
+  offline without the keyfile.
 - With --no-password: plain packed tar.gz, not encrypted at all. Anyone
   with the file can open it, same as zip without a password. Only for
   stuff you don't mind sharing.
@@ -25,12 +29,13 @@ Old keyfile-mode bundles (a random key in a sidecar .key file, from
 
 Layout v1, big-endian:
   BHB1 | kdf_id | t,m,p | salt | [nonce] | ct_len | ct
-  kdf_id 1 (password) and 0 (legacy keyfile) carry a 12-byte nonce and
-  ct is AES-GCM with the header as AAD. kdf_id 2 (plain) has no nonce
-  and ct is the tar.gz as-is.
+  kdf_id 1 (password), 3 (password + keyfile), and 0 (legacy keyfile)
+  carry a 12-byte nonce and ct is AES-GCM with the header as AAD.
+  kdf_id 2 (plain) has no nonce and ct is the tar.gz as-is.
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import os
 import shutil
@@ -43,12 +48,13 @@ from argon2.exceptions import HashingError
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from ..policy import password_problems as password_problems  # re-export, older importers
-from ..vault.crypto import b64d, derive_key, generate_salt
+from ..vault.crypto import b64d, derive_key, generate_salt, mix_keyfile_digest
 
 MAGIC = b"BHB1"
 VERSION_KDF_ARGON = 1
 VERSION_KDF_NONE = 0  # legacy keyfile mode: still readable, no longer written
 VERSION_KDF_PLAIN = 2
+VERSION_KDF_ARGON_KEYFILE = 3  # password + keyfile (two factors)
 HEADER_FMT = ">4sBIIIH"  # magic, kdf_id, t, m, p, salt_len
 NONCE_LEN = 12
 # tar bigger than this spills to disk instead of RAM
@@ -81,6 +87,10 @@ class NeedsPassword(BundleError):
 
 class WrongPassword(BundleError):
     """Authentication failed: wrong secret, or the file was tampered with."""
+
+
+class NeedsKeyfile(BundleError):
+    """The bundle is two-factor and the keyfile was not given (or is missing)."""
 
 
 class WeakPassword(BundleError):
@@ -177,7 +187,7 @@ def _parse_header(data: bytes) -> tuple[int, int, int, int, bytes, bytes, bytes,
         raise BundleError("not a .bhb bundle (bad header)") from e
     if magic != MAGIC:
         raise BundleError("not a .bhb bundle (bad magic)")
-    if kdf_id not in (VERSION_KDF_ARGON, VERSION_KDF_NONE, VERSION_KDF_PLAIN):
+    if kdf_id not in (VERSION_KDF_ARGON, VERSION_KDF_NONE, VERSION_KDF_PLAIN, VERSION_KDF_ARGON_KEYFILE):
         raise BundleError(f"unsupported kdf_id {kdf_id}")
     if kdf_id != VERSION_KDF_PLAIN:
         if not (MIN_T <= t <= MAX_T) or not (MIN_M <= m <= MAX_M) or not (MIN_P <= p <= MAX_P):
@@ -192,7 +202,7 @@ def _parse_header(data: bytes) -> tuple[int, int, int, int, bytes, bytes, bytes,
         raise BundleError("truncated bundle")
     off += slen
     nonce = b""
-    if kdf_id in (VERSION_KDF_ARGON, VERSION_KDF_NONE):
+    if kdf_id in (VERSION_KDF_ARGON, VERSION_KDF_NONE, VERSION_KDF_ARGON_KEYFILE):
         nonce = data[off:off + NONCE_LEN]
         if len(nonce) != NONCE_LEN:
             raise BundleError("truncated bundle")
@@ -214,6 +224,16 @@ def _unlock(kdf_id: int, t: int, m: int, p: int, salt: bytes,
         if not password:
             raise NeedsPassword("bundle needs a password (--password)")
         return derive_key(password, salt, t, m, p)
+    if kdf_id == VERSION_KDF_ARGON_KEYFILE:
+        if not password:
+            raise NeedsPassword("bundle needs a password (--password)")
+        if not keyfile:
+            raise NeedsKeyfile("this bundle also needs its keyfile (--keyfile PATH)")
+        base = bytearray(derive_key(password, salt, t, m, p))
+        try:
+            return mix_keyfile_digest(bytes(base), _keyfile_digest(keyfile))
+        finally:
+            _wipe(base)
     if kdf_id == VERSION_KDF_NONE:
         kf = keyfile or (str(bundle) + ".key")
         raw = Path(kf).read_text().strip()
@@ -230,13 +250,29 @@ def _wipe(key: bytes | bytearray) -> None:
         key[:] = b"\x00" * len(key)
 
 
+def _keyfile_digest(keyfile: str | Path) -> bytes:
+    """Stream a keyfile through SHA-256; only the digest ever mixes into the key."""
+    p = Path(keyfile).expanduser()
+    if not p.is_file():
+        raise NeedsKeyfile(f"no keyfile at {p}")
+    h = hashlib.sha256()
+    try:
+        with open(p, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+    except OSError as e:
+        raise BundleError(f"cannot read keyfile {p}: {e.strerror or e}") from e
+    return h.digest()
+
+
 def create_bundle(src_dir: str | Path, out: str | Path, password: str | None,
                   t: int | None = None, m: int | None = None, p: int | None = None,
-                  preset: str = DEFAULT_KDF_PRESET) -> dict:
+                  preset: str = DEFAULT_KDF_PRESET, keyfile: str | Path | None = None) -> dict:
     src = Path(src_dir)
     dst = Path(out)
     if not src.is_dir():
         raise BundleError("src must be a directory")
+    kf = Path(keyfile).expanduser() if keyfile else None
     tar_bytes = _build_tar(src)
     if password:
         problems = password_problems(password)
@@ -244,16 +280,24 @@ def create_bundle(src_dir: str | Path, out: str | Path, password: str | None,
             raise WeakPassword("password rejected: " + "; ".join(problems))
         t, m, p = _kdf_params(preset, t, m, p)
         salt = generate_salt()
-        kdf_id = VERSION_KDF_ARGON
+        kdf_id = VERSION_KDF_ARGON_KEYFILE if kf is not None else VERSION_KDF_ARGON
         nonce = os.urandom(NONCE_LEN)
         header = struct.pack(HEADER_FMT, MAGIC, kdf_id, t, m, p, len(salt)) + salt + nonce
         key = bytearray(derive_key(password, salt, t, m, p))
+        if kf is not None:
+            mixed = bytearray(mix_keyfile_digest(bytes(key), _keyfile_digest(kf)))
+            _wipe(key)
+            key = mixed
         try:
             ct = AESGCM(bytes(key)).encrypt(nonce, tar_bytes, header)
         finally:
             _wipe(key)
         label = f"argon2id {m // 1024} MiB x {t} passes"
+        if kf is not None:
+            label += " + keyfile"
     else:
+        if kf is not None:
+            raise BundleError("a keyfile is a second factor; it needs a password too")
         t = m = p = 0
         header = struct.pack(HEADER_FMT, MAGIC, VERSION_KDF_PLAIN, 0, 0, 0, 0)
         ct = tar_bytes
@@ -262,7 +306,7 @@ def create_bundle(src_dir: str | Path, out: str | Path, password: str | None,
         f.write(header + struct.pack(">Q", len(ct)) + ct)
     os.chmod(dst, 0o600)
     params = None if t == 0 else {"t": t, "m": m, "p": p}
-    return {"bundle": str(dst), "keyfile": None, "bytes_in": len(tar_bytes),
+    return {"bundle": str(dst), "keyfile": str(kf) if kf else None, "bytes_in": len(tar_bytes),
             "bytes_out": dst.stat().st_size, "kdf": label, "params": params}
 
 
@@ -290,6 +334,7 @@ def read_bundle(bundle: str | Path, password: str | None = None,
 
 _KIND = {
     VERSION_KDF_ARGON: "argon2id",
+    VERSION_KDF_ARGON_KEYFILE: "argon2id+keyfile",
     VERSION_KDF_NONE: "keyfile",
     VERSION_KDF_PLAIN: "plain",
 }
@@ -301,13 +346,13 @@ def bundle_info(bundle: str | Path) -> dict:
     kdf_id, t, m, p, _salt, _nonce, ct, _header = _parse_header(data)
     info = {"kind": _KIND[kdf_id], "path": str(bundle), "bytes": len(data),
             "payload_bytes": len(ct)}
-    if kdf_id == VERSION_KDF_ARGON:
+    if kdf_id in (VERSION_KDF_ARGON, VERSION_KDF_ARGON_KEYFILE):
         info.update(t=t, m=m, p=p)
     return info
 
 
 def bundle_kind(bundle: str | Path) -> str:
-    """One of 'argon2id', 'keyfile', 'plain'. Raises BundleError on garbage."""
+    """One of 'argon2id', 'argon2id+keyfile', 'keyfile', 'plain'. Raises BundleError on garbage."""
     return bundle_info(bundle)["kind"]
 
 

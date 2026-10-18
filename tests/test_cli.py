@@ -428,10 +428,59 @@ def test_bundle_verify_prompts_and_passes(tmp_path, monkeypatch):
     assert "OK" in r.output
 
 
-def test_bundle_extract_password_and_keyfile_conflict(tmp_path):
-    r = runner.invoke(main, ["bundle", "extract", "x.bhb", "d", "--password", "--keyfile", "k"])
+def test_bundle_keyfile_refused_on_password_only_bundle(tmp_path):
+    bhb = _pw_bundle(tmp_path)
+    r = runner.invoke(
+        main, ["bundle", "extract", str(bhb), str(tmp_path / "out"), "--keyfile", str(tmp_path / "k")]
+    )
     assert r.exit_code != 0
-    assert "not both" in r.output
+    assert "password-only" in r.output
+
+
+def test_bundle_plain_takes_no_credentials(tmp_path):
+    src = tmp_path / "p"
+    src.mkdir()
+    (src / "x.txt").write_text("x")
+    bhb = tmp_path / "p.bhb"
+    r = runner.invoke(main, ["bundle", "create", "--no-password", str(src), str(bhb)])
+    assert r.exit_code == 0, r.output
+    r = runner.invoke(main, ["bundle", "list", str(bhb), "--password"])
+    assert r.exit_code != 0
+    assert "takes no password" in r.output
+
+
+def test_bundle_two_factor_roundtrip(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    src = tmp_path / "d"
+    src.mkdir()
+    (src / "a.txt").write_text("data")
+    bhb = tmp_path / "t.bhb"
+    kf = tmp_path / "bh.key"
+
+    answers = iter(["bundle-pass-123!", "bundle-pass-123!"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(
+        main, ["bundle", "create", "--kdf", "light", "--keyfile", str(kf), str(src), str(bhb)]
+    )
+    assert r.exit_code == 0, r.output
+    assert kf.is_file() and (kf.stat().st_mode & 0o777) == 0o600
+    assert "two factors" in r.output
+
+    answers = iter(["bundle-pass-123!"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    out = tmp_path / "out"
+    r = runner.invoke(main, ["bundle", "extract", str(bhb), str(out), "--keyfile", str(kf)])
+    assert r.exit_code == 0, r.output
+    assert (out / "a.txt").read_text() == "data"
+
+    # no keyfile and no terminal: says what is missing instead of hanging
+    answers = iter(["bundle-pass-123!"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["bundle", "extract", str(bhb), str(tmp_path / "out2")])
+    assert r.exit_code != 0
+    assert "--keyfile" in r.output
+    assert "Traceback" not in r.output
 
 
 def test_bundle_create_generates_strong_password(tmp_path):

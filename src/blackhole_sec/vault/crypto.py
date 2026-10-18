@@ -58,6 +58,12 @@ def file_key(vault_key: bytes | bytearray, file_id: str) -> bytes:
                 info=b"blackhole-sec vault file " + file_id.encode()).derive(bytes(vault_key))
 
 
+def mix_keyfile_digest(key: bytes, digest: bytes) -> bytes:
+    """Fold a keyfile's SHA-256 digest into an already-derived key (second factor)."""
+    return HKDF(algorithm=hashes.SHA256(), length=KEY_LEN, salt=None,
+                info=b"blackhole-sec keyfile mix").derive(key + digest)
+
+
 def encrypt_file_blob(vault_key: bytes | bytearray, file_id: str, data: bytes) -> bytes:
     """nonce || ciphertext. The file id goes in as AAD, so blobs cannot be swapped around."""
     nonce = os.urandom(NONCE_LEN)
