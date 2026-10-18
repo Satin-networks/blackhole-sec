@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2
+
+- `blackhole upgrade` checks what pip actually installed before claiming
+  success; when PyPI's mirror is still catching up it says so instead of
+  naming a version that never landed.
+
 ## 0.4.1
 
 - Extracting a bundle just asks for the password now; the Argon2id
