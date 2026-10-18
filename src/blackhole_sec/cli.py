@@ -27,13 +27,13 @@ from .bundle import (
     create_bundle,
     extract_bundle,
     list_bundle,
-    password_problems,
     read_bundle,
 )
 from .check.features import analyze_url
 from .check.mitre import mitre_for
 from .check.report import defang, format_text, to_dict
 from .check.scorer import score_features
+from .policy import password_problems
 from .shred.cleaner import clean_file, shred_file, verify_clean
 from .shred.metadata import analyze_file
 from .vault.generator import generate_passphrase, generate_password
