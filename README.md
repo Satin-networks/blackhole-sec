@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/satin-networks/blackhole-sec/main/docs/assets/logo.svg" width="140" alt="blackhole-sec">
+</p>
+
 # blackhole-sec
 
 A small offline toolkit I actually use: check sketchy links, keep passwords

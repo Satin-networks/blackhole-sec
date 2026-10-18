@@ -5,6 +5,8 @@ repo_url: https://github.com/satin-networks/blackhole-sec
 
 theme:
   name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
   palette:
     - scheme: slate
       primary: deep purple

@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="logo-title logo-desc">
+  <title id="logo-title">blackhole-sec</title>
+  <desc id="logo-desc">A black hole seen at an angle, with a glowing accretion disk and a lensed arc of light bending over it.</desc>
+  <defs>
+    <radialGradient id="space" cx="50%" cy="48%" r="62%">
+      <stop offset="0%" stop-color="#7C5CFF" stop-opacity="0.20"/>
+      <stop offset="55%" stop-color="#7C5CFF" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#7C5CFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="disk" gradientUnits="userSpaceOnUse" x1="20" y1="128" x2="236" y2="128">
+      <stop offset="0%" stop-color="#6B4BC9" stop-opacity="0.15"/>
+      <stop offset="22%" stop-color="#B07CFF"/>
+      <stop offset="42%" stop-color="#FFB454"/>
+      <stop offset="58%" stop-color="#FFB454"/>
+      <stop offset="78%" stop-color="#B07CFF"/>
+      <stop offset="100%" stop-color="#6B4BC9" stop-opacity="0.15"/>
+    </linearGradient>
+    <linearGradient id="lens" gradientUnits="userSpaceOnUse" x1="40" y1="148" x2="216" y2="100">
+      <stop offset="0%" stop-color="#FFB454" stop-opacity="0.25"/>
+      <stop offset="45%" stop-color="#FFD98A"/>
+      <stop offset="100%" stop-color="#FFB454" stop-opacity="0.35"/>
+    </linearGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <circle cx="128" cy="126" r="104" fill="url(#space)"/>
+
+  <ellipse cx="128" cy="128" rx="105" ry="25" transform="rotate(-16 128 128)"
+           fill="none" stroke="url(#disk)" stroke-width="33" opacity="0.30" filter="url(#soft)">
+    <animate attributeName="opacity" values="0.22;0.42;0.22" dur="8s"
+             calcMode="spline" keyTimes="0;0.5;1" keySplines="0.4 0 0.6 1;0.4 0 0.6 1"
+             repeatCount="indefinite"/>
+  </ellipse>
+  <ellipse cx="128" cy="128" rx="105" ry="25" transform="rotate(-16 128 128)"
+           fill="none" stroke="url(#disk)" stroke-width="21"/>
+
+  <path d="M 40 148 A 95 95 0 0 1 216 100" fill="none" stroke="url(#lens)"
+        stroke-width="15" opacity="0.35" filter="url(#soft)"/>
+  <path d="M 40 148 A 95 95 0 0 1 216 100" fill="none" stroke="url(#lens)"
+        stroke-width="6" stroke-linecap="round"/>
+
+  <circle cx="128" cy="128" r="54.5" fill="#07070D"/>
+  <circle cx="128" cy="128" r="57.5" fill="none" stroke="#FFB454" stroke-width="6" opacity="0.22" filter="url(#soft)"/>
+  <circle cx="128" cy="128" r="56.3" fill="none" stroke="#FFD98A" stroke-width="1.7" opacity="0.95"/>
+</svg>
