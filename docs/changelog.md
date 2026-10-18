@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.1
+
+- Extracting a bundle just asks for the password now; the Argon2id
+  explainer that ran before the prompt is gone.
+- Cancelling the bundle password prompt says `Aborted!` instead of an
+  error about the `--password` flag; pressing Enter on it says
+  `no password given, nothing was opened`.
+
 ## 0.4.0
 
 - `bundle create --keyfile PATH` adds a second factor: the bundle key
