@@ -16,7 +16,7 @@
         <link rel="prev" href="../shred/">
       
       
-        <link rel="next" href="../cli/">
+        <link rel="next" href="../comparison/">
       
       
         
@@ -309,6 +309,25 @@
     
   
   Bundles (.bhb)
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../comparison/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Compared to age and 7-Zip
 
       </a>
     </li>
@@ -701,6 +720,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compared to age and 7-Zip
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../cli/" class="md-nav__link">
         
   
@@ -926,10 +972,13 @@
 
 
 <h1 id="bundles-bhb">Bundles (.bhb)<a class="headerlink" href="#bundles-bhb" title="Permanent link">&para;</a></h1>
-<p>Two flavors. With a password, <code>.bhb</code> packs a directory to tar.gz and
+<p>Three flavors. With a password, <code>.bhb</code> packs a directory to tar.gz and
 encrypts the whole thing, names and all - only blackhole opens it.
-With <code>--no-password</code> it packs plain: no encryption, opens with no
-flags, same as a zip with no password. Pick per bundle.</p>
+Add <code>--keyfile</code> and the password becomes half the key: the file is a
+second factor, and a stolen copy of the bundle cannot even be attacked
+offline without it. With <code>--no-password</code> it packs plain: no
+encryption, opens with no flags, same as a zip with no password. Pick
+per bundle.</p>
 <p>Password mode is deliberately expensive to open - that is the point.
 Every guess an attacker makes costs the full Argon2id work below, per
 try. Unlocking in a terminal takes a few seconds; that is the trade.</p>
@@ -970,6 +1019,9 @@ blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class
 <span class="c1"># let blackhole make a strong password and print it once</span>
 blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb<span class="w"> </span>--generate
 
+<span class="c1"># two factors: opens only with the password and this file, both</span>
+blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb<span class="w"> </span>--keyfile<span class="w"> </span>~/bh-photos.key
+
 <span class="c1"># the heaviest settings (wants a few GiB of RAM free)</span>
 blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb<span class="w"> </span>--kdf<span class="w"> </span>paranoid
 
@@ -981,14 +1033,24 @@ blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class
 top-list classics, repeated runs and keyboard walks. <code>--generate</code>
 sidesteps all of that with a 24-character random password. Store it
 before you close the terminal.</p>
+<p>With <code>--keyfile PATH</code> the bundle key becomes Argon2id(password) mixed
+with SHA-256 of that file. Opening needs both, and someone holding
+only the bundle cannot test password guesses at all - there is nothing
+to check them against. If PATH does not exist, a random 32-byte
+keyfile is minted there (0600). Keep it somewhere else than the
+bundle: a USB stick, or a copy in the vault, not the same folder.</p>
 <h2 id="opening-one">Opening one<a class="headerlink" href="#opening-one" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>extract<span class="w"> </span>./photos.bhb<span class="w"> </span>./restored
 </code></pre></div>
 <p>Password-mode bundles prompt for the password themselves; plain
-bundles need nothing. A wrong password re-prompts, up to three tries,
-then gives up cleanly. A tampered file refuses to open. There is no
-partial extract. Bundles made back when <code>--no-password</code> wrote a <code>.key</code>
-file still open with <code>--keyfile</code>, nothing else changed for them.</p>
+bundles need nothing. Two-factor bundles take <code>--keyfile PATH</code> too,
+or prompt for the path when you have a terminal. A wrong password,
+wrong keyfile, or tampered file all get the same clean refusal - the
+bundle cannot tell you which part is off, and that is on purpose.
+A wrong password re-prompts, up to three tries, then gives up
+cleanly. There is no partial extract. Bundles made back when
+<code>--no-password</code> wrote a <code>.key</code> file still open with <code>--keyfile</code>,
+nothing else changed for them.</p>
 <h2 id="peeking-without-unpacking">Peeking without unpacking<a class="headerlink" href="#peeking-without-unpacking" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>list<span class="w"> </span>./photos.bhb
 blackhole<span class="w"> </span>bundle<span class="w"> </span>verify<span class="w"> </span>./photos.bhb<span class="p">;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>
@@ -1018,6 +1080,10 @@ root-owned too, including anything you extract.</p>
 <td>Creation rejects them; <code>--generate</code> makes real ones</td>
 </tr>
 <tr>
+<td>The password is the whole story</td>
+<td><code>--keyfile</code> adds a second factor; a leaked bundle can't be tested offline</td>
+</tr>
+<tr>
 <td>Filenames visible without the password</td>
 <td>Names are inside the encrypted blob</td>
 </tr>
@@ -1031,13 +1097,15 @@ root-owned too, including anything you extract.</p>
 </tr>
 </tbody>
 </table>
+<p>The full head-to-head with age and 7-Zip is on the
+<a href="../comparison/">comparison page</a>.</p>
 <h2 id="format-v1">Format v1<a class="headerlink" href="#format-v1" title="Permanent link">&para;</a></h2>
 <p>Big-endian, one header, one payload:</p>
 <div class="highlight"><pre><span></span><code>BHB1 | kdf_id | t,m,p | salt | [nonce (12)] | ct_len (u64) | ct
 </code></pre></div>
-<p><code>kdf_id</code> 1 (password) and 0 (old keyfile) carry a nonce and <code>ct</code> is
-AES-GCM with the header as AAD. <code>kdf_id</code> 2 (plain) has no nonce and
-<code>ct</code> is the tar.gz as-is.</p>
+<p><code>kdf_id</code> 1 (password), 3 (password + keyfile), and 0 (old keyfile)
+carry a nonce and <code>ct</code> is AES-GCM with the header as AAD. <code>kdf_id</code> 2
+(plain) has no nonce and <code>ct</code> is the tar.gz as-is.</p>
 <p>The <code>t,m,p</code> numbers are per bundle: the reader derives with whatever
 the header says, so files written by older versions keep opening with
 their original, lighter numbers. Absurd values are rejected before a

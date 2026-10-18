@@ -13,7 +13,7 @@
       
       
       
-        <link rel="prev" href="../bundle/">
+        <link rel="prev" href="../comparison/">
       
       
         <link rel="next" href="../recipes/">
@@ -317,6 +317,25 @@
   
   
   
+  
+    <li class="md-tabs__item">
+      <a href="../comparison/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Compared to age and 7-Zip
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
     
   
   
@@ -558,6 +577,33 @@
     
   
     Bundles (.bhb)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compared to age and 7-Zip
   
 
     
@@ -949,10 +995,13 @@ blackhole<span class="w"> </span>check<span class="w"> </span>suspect.tk/x<span 
 <h2 id="blackhole-vault">blackhole vault ...<a class="headerlink" href="#blackhole-vault" title="Permanent link">&para;</a></h2>
 <p><code>init</code> creates the vault, <code>set</code>/<code>get</code> store and fetch by SERVICE name,
 <code>list</code> shows names, <code>audit</code> scores password health, <code>gen</code> prints a fresh
-secret without storing it.</p>
+secret without storing it. <code>add-file</code> keeps a copy of any file (64 MiB
+cap) and <code>export</code> writes it back out, checksum verified.</p>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>vault<span class="w"> </span>init<span class="w"> </span>--vault<span class="w"> </span>~/.blackhole/vault.db
 blackhole<span class="w"> </span>vault<span class="w"> </span><span class="nb">set</span><span class="w"> </span>github<span class="w"> </span>--username<span class="w"> </span>alice<span class="w"> </span>--generate<span class="w"> </span><span class="m">24</span>
 blackhole<span class="w"> </span>vault<span class="w"> </span>get<span class="w"> </span>github<span class="w"> </span>--show
+blackhole<span class="w"> </span>vault<span class="w"> </span>add-file<span class="w"> </span>~/tax-2025.pdf
+blackhole<span class="w"> </span>vault<span class="w"> </span><span class="nb">export</span><span class="w"> </span>tax-2025.pdf<span class="w"> </span>--out<span class="w"> </span>~/back
 blackhole<span class="w"> </span>vault<span class="w"> </span>rm<span class="w"> </span>old-forum<span class="w"> </span>--yes
 blackhole<span class="w"> </span>vault<span class="w"> </span>passwd
 </code></pre></div>
@@ -971,8 +1020,11 @@ blackhole<span class="w"> </span>shred<span class="w"> </span>shred<span class="
 password/key with exit 0/1. Encrypted bundles prompt for the password
 on their own; <code>--kdf light|hard|paranoid</code> sets how expensive a guess
 is (1 GiB x 8 by default); <code>--generate</code> makes a strong password for
-you; <code>--no-password</code> packs plain with no encryption.</p>
+you; <code>--keyfile PATH</code> adds a second factor (the bundle then needs the
+password and that file both); <code>--no-password</code> packs plain with no
+encryption.</p>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb<span class="w"> </span>--generate
+blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb<span class="w"> </span>--keyfile<span class="w"> </span>~/bh-photos.key
 blackhole<span class="w"> </span>bundle<span class="w"> </span>extract<span class="w"> </span>./photos.bhb<span class="w"> </span>./restored
 blackhole<span class="w"> </span>bundle<span class="w"> </span>list<span class="w"> </span>./photos.bhb
 blackhole<span class="w"> </span>bundle<span class="w"> </span>verify<span class="w"> </span>./photos.bhb<span class="p">;</span><span class="w"> </span><span class="nb">echo</span><span class="w"> </span><span class="nv">$?</span>

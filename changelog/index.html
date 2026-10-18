@@ -317,6 +317,25 @@
   
   
     <li class="md-tabs__item">
+      <a href="../comparison/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Compared to age and 7-Zip
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
       <a href="../cli/" class="md-tabs__link">
         
   
@@ -556,6 +575,33 @@
     
   
     Bundles (.bhb)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../comparison/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Compared to age and 7-Zip
   
 
     
@@ -926,6 +972,11 @@
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">&para;</a></h1>
 <h2 id="unreleased">Unreleased<a class="headerlink" href="#unreleased" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>bundle create --keyfile PATH</code> adds a second factor: the bundle key
+  becomes Argon2id(password) mixed with the keyfile's hash, so opening
+  needs both and a leaked bundle cannot even be tested offline. A
+  missing keyfile path is minted on the spot (32 random bytes, 0600).</li>
+<li>The docs have a head-to-head with age and 7-Zip now.</li>
 <li>The vault stores files now: <code>vault add-file PATH</code> (64 MiB cap) keeps
   a copy inside, <code>vault export LABEL [--out DEST]</code> writes it back with
   a checksum check. The bytes sit encrypted in a <code>&lt;vault&gt;.files</code>
