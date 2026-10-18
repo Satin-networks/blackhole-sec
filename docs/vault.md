@@ -40,6 +40,26 @@ blackhole vault list
 blackhole vault gen --length 24
 ```
 
+## Storing files
+
+```bash
+# keep a copy of a file in the vault (64 MiB cap)
+blackhole vault add-file ~/tax-2025.pdf
+
+# give it a shorter name if you like
+blackhole vault add-file ~/keys/api.pem --name stripe-key
+
+# write it back out (checksum checked, chmod 0600)
+blackhole vault export stripe-key --out ~/keys/
+
+# overwrite a copy you already exported
+blackhole vault export tax-2025.pdf --force
+```
+
+`vault list` shows stored files with their size and original name,
+`vault rm` deletes the copy inside the vault (the file you added stays
+untouched), and `vault passwd` re-wraps everything under the new master.
+
 ## Health check
 
 ```bash
@@ -64,11 +84,15 @@ Change the reused and short ones first. That's the whole game.
   (magic, params, salt, nonce) is authenticated as AAD.
 - Unlock tries to decrypt a known verifier. Wrong password just fails.
 - The master is never written anywhere. Each command locks when it ends.
+- Stored files live in a `<vault>.files` directory beside the vault,
+  each encrypted under its own HKDF subkey of the vault key. The vault
+  file itself stays small, so ordinary lookups stay quick.
 - Generated passphrases draw from the EFF large wordlist (7776 words:
   five words is ~64 bits). Generated passwords default to 20 chars
   mixing letters, digits and symbols (~120 bits).
 
 ## Moving machines
 
-Copy the `.db` file. That's it. Back it up like you'd back up anything
+Copy the `.db` file - and the matching `.files` directory if you stored
+any files in it. That's it. Back both up like you'd back up anything
 precious - the backup is still encrypted, safe to keep on a USB stick.

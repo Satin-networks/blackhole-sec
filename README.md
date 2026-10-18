@@ -46,7 +46,7 @@ Scoring is plain and explainable: each signal adds points, 0-20 is BENIGN,
 21-49 SUSPICIOUS, 50+ MALICIOUS. Output is defanged (`hxxp[://]`) so you
 can't click it by accident. Batch mode and `--threshold` fit nicely in scripts.
 
-### 2. vault - passwords on your own disk
+### 2. vault - passwords and files on your own disk
 
 One encrypted file, one master password. Argon2id turns your master into a
 key, AES-256-GCM does the rest. I never store the master anywhere.
@@ -58,12 +58,16 @@ blackhole vault get github --show
 blackhole vault list
 blackhole vault audit
 blackhole vault gen --length 24
+blackhole vault add-file ~/tax-2025.pdf   # keep a file in the vault
+blackhole vault export tax-2025.pdf       # write it back out
 blackhole vault rm old-forum --yes
 blackhole vault passwd
 ```
 
 The file is chmod 0600. Every command locks when it finishes. `audit`
-calls out reused, short, and stale passwords with a 0-100 score.
+calls out reused, short, and stale passwords with a 0-100 score. Stored
+files keep their own encryption keys in a `.files` directory next to the
+vault; back up both.
 
 Lose the master and the vault is gone - there is no reset, by design.
 

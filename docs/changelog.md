@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- The vault stores files now: `vault add-file PATH` (64 MiB cap) keeps
+  a copy inside, `vault export LABEL [--out DEST]` writes it back with
+  a checksum check. The bytes sit encrypted in a `<vault>.files`
+  directory beside the vault, so ordinary password lookups stay quick.
+- Vault prompts are friendlier: type a master of your own, press Enter
+  at any password prompt to get one generated, and a weak master warns
+  instead of refusing. `vault init --kdf light|hard|paranoid` picks the
+  work factor for the machine it will live on.
+- `vault list` shows each entry's kind and a real date. `vault get` on
+  a stored file points you at `vault export`.
+- The readme and docs carry a logo now.
+
 ## 0.3.0
 
 - `.bhb` bundles are much harder to crack. Password mode now runs
