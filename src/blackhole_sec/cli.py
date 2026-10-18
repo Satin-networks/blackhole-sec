@@ -8,6 +8,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -476,6 +477,9 @@ def vault_get(service, vault, show):
     if not e:
         v.lock()
         raise click.ClickException(f"no entry for '{service}' (see 'blackhole vault list')")
+    if e.kind == "file":
+        v.lock()
+        raise click.ClickException(f"'{service}' is a stored file; use 'blackhole vault export {service}'")
     if show:
         console.print(f"{e.service}  user={e.username}  pass={e.password}", markup=False, highlight=False)
     else:
@@ -516,6 +520,78 @@ def _to_clipboard(text: str) -> bool:
         return False
 
 
+def _human(n: int) -> str:
+    size = float(n)
+    for unit in ("B", "KiB", "MiB", "GiB"):
+        if size < 1024 or unit == "GiB":
+            return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+        size /= 1024
+    return f"{size:.1f} GiB"
+
+
+@vault_grp.command(
+    "add-file",
+    context_settings=HELP_NAMES,
+    epilog="""\b
+Examples:
+  blackhole vault add-file ~/tax-2025.pdf
+  blackhole vault add-file ~/keys/api.pem --name stripe-key
+""",
+)
+@click.argument("path", metavar="PATH", type=click.Path(exists=True, dir_okay=False))
+@click.option("--name", default="", metavar="LABEL", help="Name to file it under (default: the file's own name).")
+@click.option("--vault", default=DEFAULT_VAULT, show_default=True, metavar="PATH", help="Vault file to open.")
+def vault_add_file(path, name, vault):
+    """Store a copy of PATH in the vault (64 MiB cap).
+
+    The bytes are encrypted with their own key and kept next to the vault,
+    so a stored file does not slow down ordinary lookups.
+    """
+    v = _open_vault(vault)
+    try:
+        try:
+            with _fs(f"could not store the file in {v.path}"):
+                e = v.add_file(path, label=name)
+        except (ValueError, FileNotFoundError) as ex:
+            raise click.ClickException(str(ex)) from ex
+        console.print(f"[green]stored[/] {escape(e.service)}  {_human(e.size)}  sha256:{e.sha256[:12]}")
+        console.print(f"[dim]get it back with: blackhole vault export {escape(e.service)}[/]")
+    finally:
+        v.lock()
+
+
+@vault_grp.command(
+    "export",
+    context_settings=HELP_NAMES,
+    epilog="""\b
+Examples:
+  blackhole vault export tax-2025.pdf
+  blackhole vault export stripe-key --out ~/keys/
+""",
+)
+@click.argument("label", metavar="LABEL")
+@click.option("--out", default=".", show_default=True, metavar="DEST", help="File or directory to write the copy to.")
+@click.option("--force", is_flag=True, help="Overwrite DEST if it already exists.")
+@click.option("--vault", default=DEFAULT_VAULT, show_default=True, metavar="PATH", help="Vault file to open.")
+def vault_export(label, out, force, vault):
+    """Write a stored file back to disk, checksum verified."""
+    v = _open_vault(vault)
+    try:
+        try:
+            with _fs(f"could not export from {v.path}"):
+                dest = v.export_file(label, out, force=force)
+        except KeyError:
+            raise click.ClickException(f"no stored file named '{label}' (see 'blackhole vault list')") from None
+        except FileExistsError as ex:
+            raise click.ClickException(f"{ex.args[0]} already exists; pass --force to overwrite") from ex
+        except (ValueError, FileNotFoundError) as ex:
+            raise click.ClickException(str(ex)) from ex
+        console.print(f"[green]exported[/] {dest}  {_human(dest.stat().st_size)}")
+        console.print("[dim]written 0600; move or chmod it if it needs to travel[/]")
+    finally:
+        v.lock()
+
+
 @vault_grp.command(
     "list",
     context_settings=HELP_NAMES,
@@ -528,8 +604,14 @@ Example:
 def vault_list(vault):
     """List service names in the vault (usernames shown, passwords never)."""
     v = _open_vault(vault)
-    rows = [(e.service, e.username, str(e.updated)) for s in v.list_services() for e in [v.get(s)] if e]
-    t = Table("service", "username", "updated", title=f"vault: {v.path}", show_lines=False)
+    rows = []
+    for s in v.list_services():
+        e = v.get(s)
+        if not e:
+            continue
+        detail = f"{_human(e.size)} ({e.filename})" if e.kind == "file" else e.username
+        rows.append((e.service, e.kind, detail, time.strftime("%Y-%m-%d", time.gmtime(e.updated))))
+    t = Table("service", "kind", "detail", "updated", title=f"vault: {v.path}", show_lines=False)
     for row in rows:
         t.add_row(*row)
     console.print(t)
@@ -596,7 +678,8 @@ Example:
 def vault_rm(service, vault, yes):
     """Delete the entry for SERVICE. This cannot be undone."""
     v = _open_vault(vault)
-    if v.get(service) is None:
+    e = v.get(service)
+    if e is None:
         v.lock()
         raise click.ClickException(f"no entry for '{service}' (see 'blackhole vault list')")
     if not yes and not click.confirm(f"Delete '{service}'?"):
@@ -604,7 +687,10 @@ def vault_rm(service, vault, yes):
         return
     with _fs(f"could not update vault {v.path}"):
         v.remove(service)
-    console.print(f"[red]deleted[/] {service}")
+    if e.kind == "file":
+        console.print(f"[red]deleted[/] {service} and its stored file")
+    else:
+        console.print(f"[red]deleted[/] {service}")
     v.lock()
 
 

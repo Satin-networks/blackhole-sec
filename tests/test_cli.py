@@ -23,6 +23,8 @@ def test_every_command_has_help():
         ["vault", "init", "--help"],
         ["vault", "set", "--help"],
         ["vault", "get", "--help"],
+        ["vault", "add-file", "--help"],
+        ["vault", "export", "--help"],
         ["vault", "list", "--help"],
         ["vault", "audit", "--help"],
         ["vault", "gen", "--help"],
@@ -569,3 +571,69 @@ def test_vault_set_generates_on_enter(tmp_path, monkeypatch):
     v.unlock("some-strong-master-1!")
     e = v.get("github")
     assert e is not None and len(e.password) == 20
+
+
+def test_vault_add_export_file_roundtrip(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+    from blackhole_sec.vault.store import Vault
+
+    db = tmp_path / "v.db"
+    Vault.create(db, "some-strong-master-1!", preset="light")
+    src = tmp_path / "notes.txt"
+    src.write_text("hello from inside the vault")
+
+    answers = iter(["some-strong-master-1!"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["vault", "add-file", str(src), "--vault", str(db)])
+    assert r.exit_code == 0, r.output
+    assert "stored" in r.output and "notes.txt" in r.output
+
+    answers = iter(["some-strong-master-1!"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    out = tmp_path / "out"
+    out.mkdir()
+    r = runner.invoke(main, ["vault", "export", "notes.txt", "--out", str(out), "--vault", str(db)])
+    assert r.exit_code == 0, r.output
+    assert (out / "notes.txt").read_text() == "hello from inside the vault"
+
+
+def test_vault_list_and_get_know_files(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+    from blackhole_sec.vault.store import Vault
+
+    db = tmp_path / "v.db"
+    v = Vault.create(db, "some-strong-master-1!", preset="light")
+    src = tmp_path / "receipt.pdf"
+    src.write_bytes(b"%PDF-1.4 not really")
+    v.add_file(src, label="receipt")
+
+    answers = iter(["some-strong-master-1!"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["vault", "list", "--vault", str(db)])
+    assert r.exit_code == 0, r.output
+    assert "receipt" in r.output and "receipt.pdf" in r.output and "file" in r.output
+
+    answers = iter(["some-strong-master-1!"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["vault", "get", "receipt", "--vault", str(db)])
+    assert r.exit_code != 0
+    assert "export" in r.output
+
+
+def test_vault_rm_file_entry_deletes_blob(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+    from blackhole_sec.vault.store import Vault
+
+    db = tmp_path / "v.db"
+    v = Vault.create(db, "some-strong-master-1!", preset="light")
+    src = tmp_path / "scan.png"
+    src.write_bytes(b"png-ish")
+    e = v.add_file(src)
+    blob = v.files_dir / f"{e.file_id}.bin"
+
+    answers = iter(["some-strong-master-1!"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["vault", "rm", "scan.png", "--yes", "--vault", str(db)])
+    assert r.exit_code == 0, r.output
+    assert "and its stored file" in r.output
+    assert not blob.exists()

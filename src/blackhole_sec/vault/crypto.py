@@ -5,7 +5,9 @@ import base64
 import os
 
 from argon2.low_level import Type, hash_secret_raw
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 # Vault opens on every command, so the default stays below the bundle
 # default. Params live in the file; old vaults keep their own numbers.
@@ -48,6 +50,25 @@ def encrypt_blob(key: bytes, plaintext: bytes, aad: bytes = b"blackhole-sec/vaul
 
 def decrypt_blob(key: bytes, nonce: bytes, ct: bytes, aad: bytes = b"blackhole-sec/vault-v1") -> bytes:
     return AESGCM(key).decrypt(nonce, ct, aad)
+
+
+def file_key(vault_key: bytes | bytearray, file_id: str) -> bytes:
+    """One key per stored file, derived from the vault key."""
+    return HKDF(algorithm=hashes.SHA256(), length=KEY_LEN, salt=None,
+                info=b"blackhole-sec vault file " + file_id.encode()).derive(bytes(vault_key))
+
+
+def encrypt_file_blob(vault_key: bytes | bytearray, file_id: str, data: bytes) -> bytes:
+    """nonce || ciphertext. The file id goes in as AAD, so blobs cannot be swapped around."""
+    nonce = os.urandom(NONCE_LEN)
+    ct = AESGCM(file_key(vault_key, file_id)).encrypt(nonce, data, file_id.encode())
+    return nonce + ct
+
+
+def decrypt_file_blob(vault_key: bytes | bytearray, file_id: str, blob: bytes) -> bytes:
+    if len(blob) <= NONCE_LEN:
+        raise ValueError("file blob is truncated")
+    return AESGCM(file_key(vault_key, file_id)).decrypt(blob[:NONCE_LEN], blob[NONCE_LEN:], file_id.encode())
 
 
 def b64e(b: bytes) -> str:
