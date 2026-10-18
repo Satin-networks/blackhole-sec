@@ -892,14 +892,15 @@
 <li>Stolen vault file: Argon2id (512 MiB, 8 passes by default, p=4) plus
   AES-256-GCM. The master is never stored. Files are 0600. Unlock is
   pass/fail against a verifier. <code>vault passwd</code> re-keys older vaults onto
-  the current default.</li>
+  the current default, stored files included.</li>
 <li>Posting photos: <code>clean</code> writes a new file, the original stays put.
   <code>verify</code> exits non-zero while sensitive tags remain.</li>
 <li><code>.bhb</code> archives encrypt names and contents as one blob. Password
   guesses run through Argon2id at 1 GiB and 8 passes by default
   (<code>--kdf paranoid</code> roughly triples that; the header carries the
-  params, old bundles keep their own). Extraction skips absolute
-  paths, <code>..</code>, symlinks and device nodes.</li>
+  params, old bundles keep their own). With <code>--keyfile</code>, a stolen
+  bundle cannot be tested offline at all without that file. Extraction
+  skips absolute paths, <code>..</code>, symlinks and device nodes.</li>
 </ul>
 <h2 id="not-covered">Not covered<a class="headerlink" href="#not-covered" title="Permanent link">&para;</a></h2>
 <ul>

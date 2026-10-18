@@ -743,6 +743,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#keeping-a-document-in-the-vault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keeping a document in the vault
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-backup-bundle-that-needs-two-things" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A backup bundle that needs two things
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sending-a-folder-to-a-friend" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -897,6 +919,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#keeping-a-document-in-the-vault" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Keeping a document in the vault
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-backup-bundle-that-needs-two-things" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A backup bundle that needs two things
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sending-a-folder-to-a-friend" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -967,6 +1011,19 @@ blackhole<span class="w"> </span>shred<span class="w"> </span>verify<span class=
 <h2 id="storing-a-new-account">Storing a new account<a class="headerlink" href="#storing-a-new-account" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>vault<span class="w"> </span><span class="nb">set</span><span class="w"> </span>github<span class="w"> </span>--username<span class="w"> </span>alice<span class="w"> </span>--generate<span class="w"> </span><span class="m">24</span>
 blackhole<span class="w"> </span>vault<span class="w"> </span>audit<span class="w">   </span><span class="c1"># run monthly, fix reused and short ones first</span>
+</code></pre></div>
+<h2 id="keeping-a-document-in-the-vault">Keeping a document in the vault<a class="headerlink" href="#keeping-a-document-in-the-vault" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>vault<span class="w"> </span>add-file<span class="w"> </span>~/passport-scan.pdf
+blackhole<span class="w"> </span>vault<span class="w"> </span>add-file<span class="w"> </span>~/keys/api.pem<span class="w"> </span>--name<span class="w"> </span>stripe-key
+blackhole<span class="w"> </span>vault<span class="w"> </span>list<span class="w">                                  </span><span class="c1"># shows it as kind 'file'</span>
+blackhole<span class="w"> </span>vault<span class="w"> </span><span class="nb">export</span><span class="w"> </span>passport-scan.pdf<span class="w"> </span>--out<span class="w"> </span>~/back<span class="w"> </span><span class="c1"># checksum verified</span>
+<span class="c1"># the copy inside goes away with: blackhole vault rm passport-scan.pdf</span>
+</code></pre></div>
+<h2 id="a-backup-bundle-that-needs-two-things">A backup bundle that needs two things<a class="headerlink" href="#a-backup-bundle-that-needs-two-things" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./photos<span class="w"> </span>./photos.bhb<span class="w"> </span>--generate<span class="w"> </span>--keyfile<span class="w"> </span>~/bh-photos.key
+<span class="c1"># the generated password prints once: put it in the vault</span>
+<span class="c1"># copy ~/bh-photos.key to a USB stick - not the same disk as the bundle</span>
+blackhole<span class="w"> </span>bundle<span class="w"> </span>extract<span class="w"> </span>./photos.bhb<span class="w"> </span>./restored<span class="w"> </span>--keyfile<span class="w"> </span>~/bh-photos.key
 </code></pre></div>
 <h2 id="sending-a-folder-to-a-friend">Sending a folder to a friend<a class="headerlink" href="#sending-a-folder-to-a-friend" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>bundle<span class="w"> </span>create<span class="w"> </span>./project<span class="w"> </span>./project.bhb
