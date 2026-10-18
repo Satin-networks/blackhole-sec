@@ -41,3 +41,13 @@ def test_generators():
     assert len(generate_passphrase(5).split("-")) == 5
     with pytest.raises(ValueError):
         generate_password(4)
+
+
+def test_passphrase_wordlist_is_the_full_eff_list():
+    from blackhole_sec.vault.generator import eff_words
+
+    words = eff_words()
+    # the full 7776 minus the few hyphenated entries the loader drops
+    assert 7700 < len(words) <= 7776
+    assert len(set(words)) == len(words)
+    assert all(w.isascii() and w.islower() for w in words)

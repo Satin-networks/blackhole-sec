@@ -1,8 +1,19 @@
 from pathlib import Path
 
+import pytest
 from PIL import Image
 
-from blackhole_sec.bundle import create_bundle, extract_bundle
+from blackhole_sec.bundle import (
+    DEFAULT_KDF_PRESET,
+    KDF_PRESETS,
+    NeedsPassword,
+    WrongPassword,
+    bundle_info,
+    create_bundle,
+    extract_bundle,
+    password_problems,
+    read_bundle,
+)
 from blackhole_sec.shred.cleaner import clean_file, shred_file, verify_clean
 from blackhole_sec.shred.metadata import analyze_file
 
@@ -40,7 +51,7 @@ def test_bundle_password_roundtrip(tmp_path: Path):
     (src / "hello.txt").write_text("hi")
     (src / "sub" / "b.txt").write_text("bye")
     bhb = tmp_path / "a.bhb"
-    create_bundle(src, bhb, password="bundle-pass-123!")
+    create_bundle(src, bhb, password="bundle-pass-123!", preset="light")
     dest = tmp_path / "out"
     names = extract_bundle(bhb, dest, password="bundle-pass-123!")
     assert (dest / "hello.txt").read_text() == "hi"
@@ -116,9 +127,68 @@ def test_bundle_wrong_password_fails(tmp_path: Path):
     src.mkdir()
     (src / "s.txt").write_text("s")
     bhb = tmp_path / "c.bhb"
-    create_bundle(src, bhb, password="right-123!")
-    try:
-        extract_bundle(bhb, tmp_path / "bad", password="wrong-123!")
-        assert False, "should have failed"
-    except ValueError:
-        pass
+    create_bundle(src, bhb, password="right-password-1", preset="light")
+    with pytest.raises(WrongPassword):
+        extract_bundle(bhb, tmp_path / "bad", password="wrong-password-1")
+
+
+def test_bundle_weak_passwords_rejected(tmp_path: Path):
+    src = tmp_path / "d4"
+    src.mkdir()
+    (src / "s.txt").write_text("s")
+    bhb = tmp_path / "weak.bhb"
+    assert password_problems("Password1")  # 10 chars and on the classic list
+    with pytest.raises(ValueError) as ei:
+        create_bundle(src, bhb, password="Password1", preset="light")
+    assert "shorter than 12" in str(ei.value)
+    assert not bhb.exists()
+
+
+def test_bundle_strong_passphrase_accepted(tmp_path: Path):
+    src = tmp_path / "d5"
+    src.mkdir()
+    (src / "s.txt").write_text("s")
+    bhb = tmp_path / "ok.bhb"
+    pw = "abacus-abdomen-abdominal"
+    create_bundle(src, bhb, password=pw, preset="light")
+    assert extract_bundle(bhb, tmp_path / "o5", password=pw) == ["s.txt"]
+
+
+def test_bundle_default_kdf_is_heavy(tmp_path: Path):
+    assert DEFAULT_KDF_PRESET == "hard"
+    assert KDF_PRESETS["light"] == {"t": 3, "m": 64 * 1024, "p": 4}
+    hard = KDF_PRESETS["hard"]
+    # the default must beat the old 64 MiB x 3 by at least 32x
+    assert hard["m"] * hard["t"] >= 32 * (64 * 1024 * 3)
+    src = tmp_path / "d6"
+    src.mkdir()
+    (src / "s.txt").write_text("s")
+    bhb = tmp_path / "default.bhb"
+    create_bundle(src, bhb, password="bundle-pass-123!")
+    info = bundle_info(bhb)
+    assert (info["t"], info["m"], info["p"]) == (hard["t"], hard["m"], hard["p"])
+
+
+def test_bundle_needs_password_error(tmp_path: Path):
+    src = tmp_path / "d7"
+    src.mkdir()
+    (src / "s.txt").write_text("s")
+    bhb = tmp_path / "np.bhb"
+    create_bundle(src, bhb, password="bundle-pass-123!", preset="light")
+    with pytest.raises(NeedsPassword):
+        read_bundle(bhb)
+
+
+def test_bundle_rejects_absurd_header_params(tmp_path: Path):
+    import os
+    import struct
+
+    from blackhole_sec.bundle import HEADER_FMT, MAGIC
+
+    salt = os.urandom(16)
+    header = struct.pack(HEADER_FMT, MAGIC, 1, 3, 10 ** 9, 4, len(salt)) + salt + b"\x00" * 12
+    bad = tmp_path / "absurd.bhb"
+    bad.write_bytes(header + struct.pack(">Q", 8) + b"\x00" * 8)
+    with pytest.raises(ValueError) as ei:
+        read_bundle(bad, password="whatever-password-1")
+    assert "unsupported KDF parameters" in str(ei.value)

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "blackhole-sec"
-version = "0.2.2"
+version = "0.3.0"
 description = "Offline phishing checks, encrypted vault, metadata shredder and secure .bhb archives."
 readme = "README.md"
 license = { text = "MIT" }
@@ -44,6 +44,9 @@ Issues = "https://github.com/satin-networks/blackhole-sec/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+blackhole_sec = ["data/*.txt"]
 
 [tool.ruff]
 target-version = "py311"

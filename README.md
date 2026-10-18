@@ -84,15 +84,23 @@ whole blob. Filenames, sizes, everything is hidden. Only blackhole
 opens it. With `--no-password` it packs plain: no encryption, opens
 with nothing extra, same deal as a zip with no password.
 
+Password mode is heavy on purpose: Argon2id at 1 GiB and 8 passes by
+default (~42x the work of the old default), `--kdf paranoid` for
+~128x. Weak passwords are refused at creation; `--generate` makes a
+strong one and prints it once.
+
 ```bash
 blackhole bundle create ./photos ./photos.bhb
+blackhole bundle create ./photos ./photos.bhb --generate  # strong password, printed once
+blackhole bundle create ./photos ./photos.bhb --kdf paranoid
 blackhole bundle create ./photos ./photos.bhb --no-password  # plain: anyone can open it
-blackhole bundle extract ./photos.bhb ./restored --password
-blackhole bundle list ./photos.bhb --password
-blackhole bundle verify ./photos.bhb --password; echo $?
+blackhole bundle extract ./photos.bhb ./restored  # prompts on its own
+blackhole bundle list ./photos.bhb
+blackhole bundle verify ./photos.bhb; echo $?
 ```
 
-Wrong password or a tampered file just refuses to open. Extraction rejects
+Wrong password or a tampered file just refuses to open; a wrong entry
+re-prompts up to three times, then gives up. Extraction rejects
 absolute paths, `..`, and symlinks.
 
 ```bash

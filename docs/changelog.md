@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.0
+
+- `.bhb` bundles are much harder to crack. Password mode now runs
+  Argon2id at 1 GiB and 8 passes by default - ~42x the work of 0.2.x
+  per guess - and `bundle create --kdf paranoid` roughly triples that
+  again (~128x). Unlock takes a few seconds now; that is the point.
+- Old bundles keep opening unchanged: the work factor lives in the
+  header as t/m/p, and the reader derives with whatever it finds.
+  Absurd header values are rejected before any memory is spent.
+- Weak bundle passwords are refused at creation (12+ chars, three
+  classes under 16, no top-list classics, no keyboard walks) and
+  `bundle create --generate` prints a fresh 24-char password for you.
+- `bundle extract`/`list`/`verify` detect encrypted bundles and prompt
+  for the password themselves; a wrong password re-prompts up to three
+  tries. `--password` still works, it just stopped being required.
+- Passphrase generation now draws from the EFF large wordlist (7776
+  words, ~64 bits for five) instead of a 26-word rump.
+- Derived bundle keys are zeroed after use (best effort in Python).
+
 ## 0.2.2
 
 - `--no-password` now packs plain and unencrypted: no keyfile, opens

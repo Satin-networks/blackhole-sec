@@ -187,14 +187,19 @@ def test_bundle_create_says_source_untouched(tmp_path):
     assert (src / "f.txt").read_text() == "x"
 
 
-def test_bundle_extract_wrong_password_is_clean(tmp_path):
+def test_bundle_extract_without_password_input_is_clean(tmp_path, monkeypatch):
+    from blackhole_sec import cli
     from blackhole_sec.bundle import create_bundle
 
+    def no_input(prompt="Master password: "):
+        raise EOFError
+
+    monkeypatch.setattr(cli, "_master", no_input)
     src = tmp_path / "d"
     src.mkdir()
     (src / "s.txt").write_text("s")
     bhb = tmp_path / "c.bhb"
-    create_bundle(src, bhb, password="right-password-1")
+    create_bundle(src, bhb, password="right-password-1", preset="light")
     r = runner.invoke(main, ["bundle", "extract", str(bhb), str(tmp_path / "out")])
     assert r.exit_code != 0
     assert "password" in r.output.lower()
@@ -248,14 +253,19 @@ def test_bundle_create_plain_warns(tmp_path):
     assert "left untouched" in r.output
 
 
-def test_bundle_verify_needs_password_is_clean(tmp_path):
+def test_bundle_verify_needs_password_is_clean(tmp_path, monkeypatch):
+    from blackhole_sec import cli
     from blackhole_sec.bundle import create_bundle
 
+    def no_input(prompt="Master password: "):
+        raise EOFError
+
+    monkeypatch.setattr(cli, "_master", no_input)
     src = tmp_path / "d"
     src.mkdir()
     (src / "s.txt").write_text("s")
     bhb = tmp_path / "c.bhb"
-    create_bundle(src, bhb, password="right-password-1")
+    create_bundle(src, bhb, password="right-password-1", preset="light")
     r = runner.invoke(main, ["bundle", "verify", str(bhb)])
     assert r.exit_code == 1
     assert "FAIL" in r.output
@@ -270,9 +280,9 @@ def test_bundle_empty_dirs_survive(tmp_path):
     (src / "empty" / "nested").mkdir(parents=True)
     (src / "f.txt").write_text("x")
     bhb = tmp_path / "e.bhb"
-    create_bundle(src, bhb, password="pw-12345")
+    create_bundle(src, bhb, password="empty-dirs-pass-1", preset="light")
     out = tmp_path / "out"
-    extract_bundle(bhb, out, password="pw-12345")
+    extract_bundle(bhb, out, password="empty-dirs-pass-1")
     assert (out / "empty" / "nested").is_dir()
     assert (out / "f.txt").read_text() == "x"
 
@@ -334,3 +344,142 @@ def test_typo_suggests_command():
     r = runner.invoke(main, ["bundle", "cretae"])
     assert r.exit_code != 0
     assert "create" in r.output
+
+
+def _pw_bundle(tmp_path, password="right-password-1"):
+    from blackhole_sec.bundle import create_bundle
+
+    src = tmp_path / "d"
+    src.mkdir(exist_ok=True)
+    (src / "s.txt").write_text("s")
+    bhb = tmp_path / "c.bhb"
+    create_bundle(src, bhb, password=password, preset="light")
+    return bhb
+
+
+def test_bundle_extract_auto_prompts(tmp_path, monkeypatch):
+    """The whole point: encrypted bundles ask for the password themselves."""
+    from blackhole_sec import cli
+
+    bhb = _pw_bundle(tmp_path)
+    calls = []
+
+    def fake_getpass(prompt="Master password: "):
+        calls.append(prompt)
+        return "right-password-1"
+
+    monkeypatch.setattr(cli, "_master", fake_getpass)
+    out = tmp_path / "out"
+    r = runner.invoke(main, ["bundle", "extract", str(bhb), str(out)])
+    assert r.exit_code == 0, r.output
+    assert (out / "s.txt").read_text() == "s"
+    assert calls and "Bundle password" in calls[0]
+
+
+def test_bundle_extract_reprompts_on_wrong_password(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    bhb = _pw_bundle(tmp_path)
+    answers = iter(["wrong-password-1", "right-password-1"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    out = tmp_path / "out"
+    r = runner.invoke(main, ["bundle", "extract", str(bhb), str(out)])
+    assert r.exit_code == 0, r.output
+    assert (out / "s.txt").exists()
+
+
+def test_bundle_extract_gives_up_after_three(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    bhb = _pw_bundle(tmp_path)
+    prompts = []
+
+    def always_wrong(prompt="Master password: "):
+        prompts.append(prompt)
+        return "wrong-password-1"
+
+    monkeypatch.setattr(cli, "_master", always_wrong)
+    r = runner.invoke(main, ["bundle", "extract", str(bhb), str(tmp_path / "out")])
+    assert r.exit_code != 0
+    assert "decryption failed" in r.output
+    assert "Traceback" not in r.output
+    assert len(prompts) == 3
+
+
+def test_bundle_list_prompts_automatically(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    bhb = _pw_bundle(tmp_path)
+    monkeypatch.setattr(cli, "_master", lambda prompt="": "right-password-1")
+    r = runner.invoke(main, ["bundle", "list", str(bhb)])
+    assert r.exit_code == 0, r.output
+    assert "s.txt" in r.output
+
+
+def test_bundle_verify_prompts_and_passes(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    bhb = _pw_bundle(tmp_path)
+    monkeypatch.setattr(cli, "_master", lambda prompt="": "right-password-1")
+    r = runner.invoke(main, ["bundle", "verify", str(bhb)])
+    assert r.exit_code == 0, r.output
+    assert "OK" in r.output
+
+
+def test_bundle_extract_password_and_keyfile_conflict(tmp_path):
+    r = runner.invoke(main, ["bundle", "extract", "x.bhb", "d", "--password", "--keyfile", "k"])
+    assert r.exit_code != 0
+    assert "not both" in r.output
+
+
+def test_bundle_create_generates_strong_password(tmp_path):
+    import re
+
+    from blackhole_sec.bundle import extract_bundle
+
+    src = tmp_path / "d"
+    src.mkdir()
+    (src / "s.txt").write_text("s")
+    bhb = tmp_path / "g.bhb"
+    r = runner.invoke(main, ["bundle", "create", "--generate", "--kdf", "light",
+                             str(src), str(bhb)])
+    assert r.exit_code == 0, r.output
+    m = re.search(r"generated bundle password:\s*(\S+)", r.output)
+    assert m, r.output
+    pw = m.group(1)
+    assert len(pw) == 24
+    out = tmp_path / "out"
+    assert extract_bundle(bhb, out, password=pw) == ["s.txt"]
+
+
+def test_bundle_create_rejects_weak_password(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    src = tmp_path / "d"
+    src.mkdir()
+    (src / "s.txt").write_text("s")
+    answers = iter(["Password1", "Password1"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    bhb = tmp_path / "weak.bhb"
+    r = runner.invoke(main, ["bundle", "create", str(src), str(bhb)])
+    assert r.exit_code != 0
+    assert "password rejected" in r.output
+    assert "--generate" in r.output
+    assert not bhb.exists()
+
+
+def test_bundle_create_kdf_preset_flag(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+    from blackhole_sec.bundle import bundle_info
+
+    src = tmp_path / "d"
+    src.mkdir()
+    (src / "s.txt").write_text("s")
+    answers = iter(["bundle-pass-123!", "bundle-pass-123!"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    bhb = tmp_path / "p.bhb"
+    r = runner.invoke(main, ["bundle", "create", "--kdf", "light", str(src), str(bhb)])
+    assert r.exit_code == 0, r.output
+    info = bundle_info(bhb)
+    assert (info["t"], info["m"], info["p"]) == (3, 64 * 1024, 4)
+    assert "64 MiB x 3 passes" in r.output

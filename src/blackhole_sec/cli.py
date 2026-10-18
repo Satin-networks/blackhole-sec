@@ -17,7 +17,19 @@ from rich.markup import escape
 from rich.table import Table
 
 from . import __version__
-from .bundle import bundle_kind, create_bundle, extract_bundle, list_bundle, read_bundle
+from .bundle import (
+    DEFAULT_KDF_PRESET,
+    KDF_PRESETS,
+    WeakPassword,
+    WrongPassword,
+    bundle_info,
+    bundle_kind,
+    create_bundle,
+    extract_bundle,
+    list_bundle,
+    password_problems,
+    read_bundle,
+)
 from .check.features import analyze_url
 from .check.mitre import mitre_for
 from .check.report import defang, format_text, to_dict
@@ -707,16 +719,64 @@ def shred_shred(files, passes, yes):
     epilog="""\b
 Examples:
   blackhole bundle create ./photos ./photos.bhb
-  blackhole bundle extract ./photos.bhb ./restored --password
+  blackhole bundle extract ./photos.bhb ./restored
 """,
 )
 def bundle_grp():
     """Pack directories into encrypted .bhb files.
 
-    Password mode derives the key from your password (Argon2id).
-    --no-password packs without encryption: anyone with the file can
-    open it. See 'blackhole bundle create -h'.
+    Password mode derives the key from your password with Argon2id,
+    deliberately heavy: 1 GiB and 8 passes by default. --no-password
+    packs without encryption: anyone with the file can open it. See
+    'blackhole bundle create -h'.
     """
+
+
+def _prompt_password(prompt: str) -> str | None:
+    """getpass, but a closed stdin or ^C returns None instead of a traceback."""
+    try:
+        return _master(prompt)
+    except (EOFError, KeyboardInterrupt):
+        console.print()
+        return None
+
+
+def _open_bundle(bundle, password, keyfile, op):
+    """Run op(password, keyfile) against BUNDLE, prompting for a password when needed.
+
+    Password-mode bundles ask for the password on their own; --password
+    stays as an explicit switch. A wrong password re-prompts up to three
+    tries, then gives up cleanly.
+    """
+    if password and keyfile:
+        raise click.UsageError("use either --password or --keyfile, not both")
+    try:
+        info = bundle_info(bundle)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+    if info["kind"] != "argon2id":
+        return op(None, keyfile)  # plain, or the old keyfile mode (BUNDLE_FILE.key)
+    if sys.stdin.isatty() and info["m"] >= 256 * 1024:
+        console.print(
+            f"[dim]argon2id key derivation: {info['m'] // 1024} MiB, {info['t']} passes."
+            " A few seconds is normal, that's the point.[/]"
+        )
+    pw = _prompt_password("Bundle password: ")
+    if pw is None:
+        raise click.ClickException(
+            "this bundle is encrypted and a password is needed; run it in a terminal"
+        )
+    tries = 3
+    for attempt in range(tries):
+        try:
+            return op(pw, keyfile)
+        except WrongPassword as e:
+            left = tries - attempt - 1
+            if not left:
+                raise click.ClickException(str(e)) from e
+            pw = _prompt_password(f"wrong password ({left} left): ")
+            if pw is None:
+                raise click.ClickException(str(e)) from e
 
 
 @bundle_grp.command(
@@ -725,7 +785,8 @@ def bundle_grp():
     epilog="""\b
 Examples:
   blackhole bundle create ./photos ./photos.bhb
-  blackhole bundle create ./photos ./photos.bhb --password
+  blackhole bundle create ./photos ./photos.bhb --generate
+  blackhole bundle create ./photos ./photos.bhb --kdf paranoid
   blackhole bundle create ./photos ./photos.bhb --no-password
 """,
 )
@@ -733,31 +794,66 @@ Examples:
 @click.argument("out", metavar="OUT_FILE")
 @click.option("--password", is_flag=True, help="Prompt for a bundle password (same as the default).")
 @click.option(
+    "--generate",
+    "generate",
+    is_flag=True,
+    help="Generate a strong password, print it once, and use it.",
+)
+@click.option(
+    "--kdf",
+    "kdf_preset",
+    type=click.Choice(list(KDF_PRESETS), case_sensitive=False),
+    default=DEFAULT_KDF_PRESET,
+    show_default=True,
+    help="Argon2id work factor per guess: light for weak devices, hard, paranoid for big machines.",
+)
+@click.option(
     "--no-password",
     is_flag=True,
     help="No encryption, no prompt: anyone with the file can open it. Only for non-sensitive stuff.",
 )
-def bundle_create(src, out, password, no_password):
+def bundle_create(src, out, password, generate, kdf_preset, no_password):
     """Archive SRC_DIR into encrypted OUT_FILE (.bhb).
 
-    With no flags you are prompted for a password. Filenames and
+    With no flags you are prompted for a password. Weak passwords are
+    rejected; --generate makes a strong one for you. Filenames and
     contents are all inside the encrypted blob.
     """
     if password and no_password:
         raise click.UsageError("use either --password or --no-password, not both")
+    if generate and (password or no_password):
+        raise click.UsageError("use --generate on its own, without --password or --no-password")
     _need_writable_dir(out, "bundle")
     pw = None
-    if not no_password:
+    if generate:
+        pw = generate_password(24)
+        console.print(f"[yellow]generated bundle password:[/] {escape(pw)}")
+        console.print("[dim]shown once; store it in the vault or write it down before anything else[/]")
+    elif not no_password:
         p1 = _master("Bundle password: ")
         p2 = _master("Confirm: ")
         if p1 != p2:
             raise click.ClickException("passwords differ, try again")
         if not p1:
-            raise click.ClickException("empty password, rerun with --no-password for keyfile mode")
+            raise click.ClickException("empty password, rerun with --no-password for a plain bundle")
+        problems = password_problems(p1)
+        if problems:
+            raise click.ClickException(
+                "password rejected: " + "; ".join(problems)
+                + ". Use --generate to make a strong one, or --no-password for a plain bundle."
+            )
         pw = p1
     with _fs(f"could not create bundle {out}"):
-        meta = create_bundle(src, out, pw)
-    console.print(f"[green]bundle created[/] {meta['bundle']} ({meta['bytes_out']}B from {meta['bytes_in']}B tar, {meta['kdf']})")
+        try:
+            meta = create_bundle(src, out, pw, preset=kdf_preset)
+        except WeakPassword as e:
+            raise click.ClickException(f"{e}. Use --generate to make a strong one.") from e
+        except ValueError as e:
+            raise click.ClickException(str(e)) from e
+    console.print(
+        f"[green]bundle created[/] {meta['bundle']} "
+        f"({meta['bytes_out']}B from {meta['bytes_in']}B tar, {meta['kdf']})"
+    )
     console.print(f"[dim]source left untouched: {src}[/]")
     if meta["kdf"].startswith("plain"):
         console.print("[yellow]not encrypted: anyone with this file can open it[/]")
@@ -770,29 +866,21 @@ def bundle_create(src, out, password, no_password):
     context_settings=HELP_NAMES,
     epilog="""\b
 Examples:
-  blackhole bundle extract ./photos.bhb ./restored --password
+  blackhole bundle extract ./photos.bhb ./restored
   blackhole bundle extract ./photos.bhb ./restored --keyfile ./photos.bhb.key
 """,
 )
 @click.argument("bundle", metavar="BUNDLE_FILE")
 @click.argument("dest", metavar="DEST_DIR")
-@click.option("--password", is_flag=True, help="Prompt for the bundle password (password-mode bundles).")
+@click.option("--password", is_flag=True, help="Prompt for the password (password-mode bundles ask on their own).")
 @click.option("--keyfile", default=None, metavar="PATH", help="Key file for old keyfile-mode bundles (defaults to BUNDLE_FILE.key).")
 def bundle_extract(bundle, dest, password, keyfile):
     """Decrypt BUNDLE_FILE into DEST_DIR. Wrong password/key just refuses to open."""
-    pw = _master("Bundle password: ") if password else None
-    try:
-        with _fs(f"could not extract {bundle}"):
-            names = extract_bundle(bundle, dest, pw, keyfile)
-    except ValueError as e:
-        raise click.ClickException(str(e)) from e
+    with _fs(f"could not extract {bundle}"):
+        names = _open_bundle(
+            bundle, password, keyfile, lambda pw, kf: extract_bundle(bundle, dest, pw, kf)
+        )
     console.print(f"[green]extracted {len(names)} files[/] -> {dest}")
-
-
-def _bundle_secret(password: bool, keyfile: str | None) -> tuple[str | None, str | None]:
-    if password and keyfile:
-        raise click.UsageError("use either --password or --keyfile, not both")
-    return (_master("Bundle password: ") if password else None), keyfile
 
 
 @bundle_grp.command(
@@ -800,19 +888,20 @@ def _bundle_secret(password: bool, keyfile: str | None) -> tuple[str | None, str
     context_settings=HELP_NAMES,
     epilog="""\b
 Examples:
-  blackhole bundle list ./photos.bhb --password
   blackhole bundle list ./photos.bhb
+  blackhole bundle list ./photos.bhb --keyfile ./photos.bhb.key
 """,
 )
 @click.argument("bundle", metavar="BUNDLE_FILE")
-@click.option("--password", is_flag=True, help="Prompt for the bundle password (password-mode bundles).")
+@click.option("--password", is_flag=True, help="Prompt for the password (password-mode bundles ask on their own).")
 @click.option("--keyfile", default=None, metavar="PATH", help="Key file for old keyfile-mode bundles (defaults to BUNDLE_FILE.key).")
 def bundle_list(bundle, password, keyfile):
     """Show what's inside BUNDLE_FILE without extracting anything."""
-    pw, kf = _bundle_secret(password, keyfile)
     try:
         with _fs(f"could not read {bundle}"):
-            entries = list_bundle(bundle, pw, kf)
+            entries = _open_bundle(
+                bundle, password, keyfile, lambda pw, kf: list_bundle(bundle, pw, kf)
+            )
     except ValueError as e:
         raise click.ClickException(str(e)) from e
     t = Table("path", "bytes", title=f"bundle: {bundle}")
@@ -829,19 +918,25 @@ def bundle_list(bundle, password, keyfile):
     context_settings=HELP_NAMES,
     epilog="""\b
 Example:
-  blackhole bundle verify ./photos.bhb --password; echo $?
+  blackhole bundle verify ./photos.bhb; echo $?
 """,
 )
 @click.argument("bundle", metavar="BUNDLE_FILE")
-@click.option("--password", is_flag=True, help="Prompt for the bundle password (password-mode bundles).")
+@click.option("--password", is_flag=True, help="Prompt for the password (password-mode bundles ask on their own).")
 @click.option("--keyfile", default=None, metavar="PATH", help="Key file for old keyfile-mode bundles (defaults to BUNDLE_FILE.key).")
 def bundle_verify(bundle, password, keyfile):
     """Check a bundle opens with this password/key. Exit 0 yes, 1 no."""
-    pw, kf = _bundle_secret(password, keyfile)
     try:
         with _fs(f"could not read {bundle}"):
-            data = read_bundle(bundle, pw, kf)
+            data = _open_bundle(
+                bundle, password, keyfile, lambda pw, kf: read_bundle(bundle, pw, kf)
+            )
             kind = bundle_kind(bundle)
+    except click.UsageError:
+        raise
+    except click.ClickException as e:
+        console.print(f"[red]FAIL[/] {bundle}: {e.message}")
+        sys.exit(1)
     except ValueError as e:
         console.print(f"[red]FAIL[/] {bundle}: {e}")
         sys.exit(1)

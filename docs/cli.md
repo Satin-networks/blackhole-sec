@@ -57,14 +57,16 @@ blackhole shred shred secret.txt --passes 7 --yes
 
 `create` packs SRC_DIR into OUT_FILE (`.bhb`), `extract` unpacks it,
 `list` shows contents without extracting, `verify` checks the
-password/key with exit 0/1. Password mode prompts; `--no-password`
-packs plain with no encryption.
+password/key with exit 0/1. Encrypted bundles prompt for the password
+on their own; `--kdf light|hard|paranoid` sets how expensive a guess
+is (1 GiB x 8 by default); `--generate` makes a strong password for
+you; `--no-password` packs plain with no encryption.
 
 ```bash
-blackhole bundle create ./photos ./photos.bhb
-blackhole bundle extract ./photos.bhb ./restored --password
-blackhole bundle list ./photos.bhb --password
-blackhole bundle verify ./photos.bhb --password; echo $?
+blackhole bundle create ./photos ./photos.bhb --generate
+blackhole bundle extract ./photos.bhb ./restored
+blackhole bundle list ./photos.bhb
+blackhole bundle verify ./photos.bhb; echo $?
 ```
 
 ## blackhole intake URL FILE [--json]

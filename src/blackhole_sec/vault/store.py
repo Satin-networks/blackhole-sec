@@ -45,7 +45,6 @@ class Vault:
         self._salt: bytes | None = None
         self._params: dict = {}
 
-    # ---- lifecycle ----
     @classmethod
     def create(cls, path: str | Path, master: str) -> Vault:
         v = cls(path)
@@ -106,7 +105,6 @@ class Vault:
         os.replace(tmp, self.path)
         os.chmod(self.path, 0o600)
 
-    # ---- CRUD ----
     def set(self, service: str, username: str = "", password: str = "", notes: str = "") -> VaultEntry:
         self._require_open()
         now = int(time.time())

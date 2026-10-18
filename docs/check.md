@@ -28,7 +28,7 @@ clicked by accident.
 | 21-49 | SUSPICIOUS | Hover, verify sender, don't log in |
 | 50-100 | MALICIOUS | Don't touch it |
 
-Confidence (VERY_LOW → HIGH) is based on how many signals fired.
+Confidence (VERY_LOW to HIGH) is based on how many signals fired.
 Every signal prints its weight, the evidence, and a MITRE tag like
 `T1566.002` so you can look it up.
 
@@ -54,7 +54,7 @@ blackhole check "http://evil.tk/x" --threshold 50; echo $?
 Short version: IP hosts, punycode and homoglyphs, shorteners, odd TLDs,
 long URLs, deep paths, tons of subdomains or hyphens, `@` tricks, missing
 https, weird ports, heavy percent-encoding, high entropy, lure words
-(`login`, `nitro`, `wallet`…), `.exe`-style paths, open-redirect params,
+(`login`, `nitro`, `wallet`), `.exe`-style paths, open-redirect params,
 brand names in the wrong domain, near-miss typos (`paypa1`), free-hosting
 domains, digit-heavy names, and embedded credentials.
 

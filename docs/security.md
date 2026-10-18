@@ -11,8 +11,11 @@ How I think about this, plainly: what it covers and what it doesn't.
   verifier.
 - Posting photos: `clean` writes a new file, the original stays put.
   `verify` exits non-zero while sensitive tags remain.
-- `.bhb` archives encrypt names and contents as one blob. Extraction
-  skips absolute paths, `..`, symlinks and device nodes.
+- `.bhb` archives encrypt names and contents as one blob. Password
+  guesses run through Argon2id at 1 GiB and 8 passes by default
+  (`--kdf paranoid` roughly triples that; the header carries the
+  params, old bundles keep their own). Extraction skips absolute
+  paths, `..`, symlinks and device nodes.
 
 ## Not covered
 
@@ -20,7 +23,8 @@ How I think about this, plainly: what it covers and what it doesn't.
   open. I lock after every command and clear the clipboard best-effort,
   but no local vault survives someone reading live RAM.
 - Weak passwords. Argon2id slows guessing, it doesn't rescue `123456`.
-  Use `vault gen`.
+  Bundle creation refuses the worst of them, and `--generate`/`vault gen`
+  hand you a real one.
 - Malware. `clean` strips metadata, it doesn't sandbox anything.
 - Print-shop redaction. Image EXIF is fully stripped; PDFs are copied
   with a report of what's left. For legal-grade work use a dedicated

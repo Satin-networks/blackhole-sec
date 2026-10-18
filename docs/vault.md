@@ -63,6 +63,9 @@ Change the reused and short ones first. That's the whole game.
   (magic, params, salt, nonce) is authenticated as AAD.
 - Unlock tries to decrypt a known verifier. Wrong password just fails.
 - The master is never written anywhere. Each command locks when it ends.
+- Generated passphrases draw from the EFF large wordlist (7776 words:
+  five words is ~64 bits). Generated passwords default to 20 chars
+  mixing letters, digits and symbols (~120 bits).
 
 ## Moving machines
 
