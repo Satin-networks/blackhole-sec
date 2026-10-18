@@ -152,6 +152,28 @@ def test_upgrade_runs_pip(monkeypatch):
     assert calls and calls[0][-2:] == ["--upgrade", "blackhole-sec"]
 
 
+def test_upgrade_handles_externally_managed_python(monkeypatch):
+    import subprocess
+
+    from blackhole_sec import cli
+
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        if len(calls) == 1:
+            return subprocess.CompletedProcess(cmd, 1, stderr="error: externally-managed-environment\n")
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(cli, "_installed_version", lambda: "0.1.0")
+    monkeypatch.setattr(cli, "_latest_pypi_version", lambda timeout=10: "0.1.1")
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+    r = runner.invoke(main, ["upgrade"])
+    assert r.exit_code == 0, r.output
+    assert calls[1][-2:] == ["--user", "--break-system-packages"]
+    assert "externally managed" in r.output
+
+
 def test_upgrade_no_network(monkeypatch):
     from blackhole_sec import cli
 

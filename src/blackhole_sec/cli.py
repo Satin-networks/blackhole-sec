@@ -1172,10 +1172,22 @@ def upgrade_cmd(check):
         console.print(f"installed: {current}  latest: {latest}  (run without --check to upgrade)")
         return
     console.print(f"upgrading {current} -> {latest} ...")
+    cmd = [sys.executable, "-m", "pip", "install", "--upgrade", "blackhole-sec"]
     try:
-        subprocess.run([sys.executable, "-m", "pip", "install", "--upgrade", "blackhole-sec"], check=True)
+        res = subprocess.run(cmd, check=False, capture_output=True, text=True)
     except FileNotFoundError:
         raise click.ClickException("no pip in this python; reinstall with the curl installer (see README)") from None
-    except subprocess.CalledProcessError as e:
-        raise click.ClickException(f"pip failed with exit {e.returncode}") from e
+    if res.returncode and "externally-managed-environment" in (res.stderr or ""):
+        # Debian, Kali, and friends lock the system python (PEP 668).
+        # A user-site install next to the system one is the polite way in.
+        console.print("[dim]this python is externally managed; installing to your user site instead[/]")
+        cmd += ["--user", "--break-system-packages"]
+        try:
+            res = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        except FileNotFoundError:
+            raise click.ClickException("no pip in this python; reinstall with the curl installer (see README)") from None
+    if res.returncode:
+        lines = (res.stderr or res.stdout or "").strip().splitlines()
+        detail = lines[-1] if lines else f"exit {res.returncode}"
+        raise click.ClickException(f"pip failed: {detail}")
     console.print(f"[green]upgraded to {latest}[/] (open a new shell if the old version still shows)")
