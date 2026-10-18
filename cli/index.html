@@ -1035,7 +1035,10 @@ verdict plus the file metadata verdict. <code>--json</code> merges both into one
 machine-readable object.</p>
 <h2 id="blackhole-upgrade-check">blackhole upgrade [--check]<a class="headerlink" href="#blackhole-upgrade-check" title="Permanent link">&para;</a></h2>
 <p>Fetches the latest release from PyPI and installs it with pip. The one
-command here that needs network. <code>--check</code> only compares versions.</p>
+command here that needs network. <code>--check</code> only compares versions. If
+your install is already newer than PyPI (a local build, say), it says
+so and does nothing; on externally managed pythons it falls back to a
+user-site install.</p>
 <div class="highlight"><pre><span></span><code>blackhole<span class="w"> </span>upgrade<span class="w"> </span>--check
 blackhole<span class="w"> </span>upgrade
 </code></pre></div>

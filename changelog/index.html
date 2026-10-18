@@ -988,7 +988,8 @@
 <li><code>vault list</code> shows each entry's kind and a real date. <code>vault get</code> on
   a stored file points you at <code>vault export</code>.</li>
 <li><code>blackhole upgrade</code> no longer dies on externally managed pythons
-  (PEP 668); it falls back to a user-site install with pip.</li>
+  (PEP 668) - it falls back to a user-site install - and it refuses to
+  walk you backwards when the install is ahead of PyPI.</li>
 <li>The readme and docs carry a logo now.</li>
 </ul>
 <h2 id="030">0.3.0<a class="headerlink" href="#030" title="Permanent link">&para;</a></h2>
