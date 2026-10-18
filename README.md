@@ -95,11 +95,14 @@ with nothing extra, same deal as a zip with no password.
 Password mode is heavy on purpose: Argon2id at 1 GiB and 8 passes by
 default (~42x the work of the old default), `--kdf paranoid` for
 ~128x. Weak passwords are refused at creation; `--generate` makes a
-strong one and prints it once.
+strong one and prints it once. Add `--keyfile` for a second factor:
+the bundle then needs the password and the file both, and a stolen
+copy cannot be tested offline without it.
 
 ```bash
 blackhole bundle create ./photos ./photos.bhb
 blackhole bundle create ./photos ./photos.bhb --generate  # strong password, printed once
+blackhole bundle create ./photos ./photos.bhb --keyfile ~/bh-photos.key  # two factors
 blackhole bundle create ./photos ./photos.bhb --kdf paranoid
 blackhole bundle create ./photos ./photos.bhb --no-password  # plain: anyone can open it
 blackhole bundle extract ./photos.bhb ./restored  # prompts on its own
@@ -109,7 +112,9 @@ blackhole bundle verify ./photos.bhb; echo $?
 
 Wrong password or a tampered file just refuses to open; a wrong entry
 re-prompts up to three times, then gives up. Extraction rejects
-absolute paths, `..`, and symlinks.
+absolute paths, `..`, and symlinks. There is a
+[head-to-head with age and 7-Zip](https://satin-networks.github.io/blackhole-sec/comparison/)
+if you are picking a tool.
 
 ```bash
 blackhole intake "http://evil.tk/login" ./photo.jpg  # link + file in one go

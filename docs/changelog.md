@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- `bundle create --keyfile PATH` adds a second factor: the bundle key
+  becomes Argon2id(password) mixed with the keyfile's hash, so opening
+  needs both and a leaked bundle cannot even be tested offline. A
+  missing keyfile path is minted on the spot (32 random bytes, 0600).
+- The docs have a head-to-head with age and 7-Zip now.
 - The vault stores files now: `vault add-file PATH` (64 MiB cap) keeps
   a copy inside, `vault export LABEL [--out DEST]` writes it back with
   a checksum check. The bytes sit encrypted in a `<vault>.files`

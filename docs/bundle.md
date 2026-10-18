@@ -1,9 +1,12 @@
 # Bundles (.bhb)
 
-Two flavors. With a password, `.bhb` packs a directory to tar.gz and
+Three flavors. With a password, `.bhb` packs a directory to tar.gz and
 encrypts the whole thing, names and all - only blackhole opens it.
-With `--no-password` it packs plain: no encryption, opens with no
-flags, same as a zip with no password. Pick per bundle.
+Add `--keyfile` and the password becomes half the key: the file is a
+second factor, and a stolen copy of the bundle cannot even be attacked
+offline without it. With `--no-password` it packs plain: no
+encryption, opens with no flags, same as a zip with no password. Pick
+per bundle.
 
 Password mode is deliberately expensive to open - that is the point.
 Every guess an attacker makes costs the full Argon2id work below, per
@@ -24,6 +27,9 @@ blackhole bundle create ./photos ./photos.bhb
 # let blackhole make a strong password and print it once
 blackhole bundle create ./photos ./photos.bhb --generate
 
+# two factors: opens only with the password and this file, both
+blackhole bundle create ./photos ./photos.bhb --keyfile ~/bh-photos.key
+
 # the heaviest settings (wants a few GiB of RAM free)
 blackhole bundle create ./photos ./photos.bhb --kdf paranoid
 
@@ -37,6 +43,13 @@ top-list classics, repeated runs and keyboard walks. `--generate`
 sidesteps all of that with a 24-character random password. Store it
 before you close the terminal.
 
+With `--keyfile PATH` the bundle key becomes Argon2id(password) mixed
+with SHA-256 of that file. Opening needs both, and someone holding
+only the bundle cannot test password guesses at all - there is nothing
+to check them against. If PATH does not exist, a random 32-byte
+keyfile is minted there (0600). Keep it somewhere else than the
+bundle: a USB stick, or a copy in the vault, not the same folder.
+
 ## Opening one
 
 ```bash
@@ -44,10 +57,14 @@ blackhole bundle extract ./photos.bhb ./restored
 ```
 
 Password-mode bundles prompt for the password themselves; plain
-bundles need nothing. A wrong password re-prompts, up to three tries,
-then gives up cleanly. A tampered file refuses to open. There is no
-partial extract. Bundles made back when `--no-password` wrote a `.key`
-file still open with `--keyfile`, nothing else changed for them.
+bundles need nothing. Two-factor bundles take `--keyfile PATH` too,
+or prompt for the path when you have a terminal. A wrong password,
+wrong keyfile, or tampered file all get the same clean refusal - the
+bundle cannot tell you which part is off, and that is on purpose.
+A wrong password re-prompts, up to three tries, then gives up
+cleanly. There is no partial extract. Bundles made back when
+`--no-password` wrote a `.key` file still open with `--keyfile`,
+nothing else changed for them.
 
 ## Peeking without unpacking
 
@@ -72,9 +89,13 @@ root-owned too, including anything you extract.
 |---|---|
 | ZipCrypto breaks in minutes | Argon2id (heavy, per-bundle params) into AES-256-GCM |
 | Weak passwords get guessed in minutes | Creation rejects them; `--generate` makes real ones |
+| The password is the whole story | `--keyfile` adds a second factor; a leaked bundle can't be tested offline |
 | Filenames visible without the password | Names are inside the encrypted blob |
 | ZipSlip (`../../evil`) on extract | Absolute paths, `..`, symlinks and devices are skipped |
 | Every website unzips it | Only blackhole reads `.bhb` |
+
+The full head-to-head with age and 7-Zip is on the
+[comparison page](comparison.md).
 
 ## Format v1
 
@@ -84,9 +105,9 @@ Big-endian, one header, one payload:
 BHB1 | kdf_id | t,m,p | salt | [nonce (12)] | ct_len (u64) | ct
 ```
 
-`kdf_id` 1 (password) and 0 (old keyfile) carry a nonce and `ct` is
-AES-GCM with the header as AAD. `kdf_id` 2 (plain) has no nonce and
-`ct` is the tar.gz as-is.
+`kdf_id` 1 (password), 3 (password + keyfile), and 0 (old keyfile)
+carry a nonce and `ct` is AES-GCM with the header as AAD. `kdf_id` 2
+(plain) has no nonce and `ct` is the tar.gz as-is.
 
 The `t,m,p` numbers are per bundle: the reader derives with whatever
 the header says, so files written by older versions keep opening with

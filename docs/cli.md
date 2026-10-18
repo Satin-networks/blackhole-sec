@@ -29,12 +29,15 @@ blackhole check suspect.tk/x --explain
 
 `init` creates the vault, `set`/`get` store and fetch by SERVICE name,
 `list` shows names, `audit` scores password health, `gen` prints a fresh
-secret without storing it.
+secret without storing it. `add-file` keeps a copy of any file (64 MiB
+cap) and `export` writes it back out, checksum verified.
 
 ```bash
 blackhole vault init --vault ~/.blackhole/vault.db
 blackhole vault set github --username alice --generate 24
 blackhole vault get github --show
+blackhole vault add-file ~/tax-2025.pdf
+blackhole vault export tax-2025.pdf --out ~/back
 blackhole vault rm old-forum --yes
 blackhole vault passwd
 ```
@@ -60,10 +63,13 @@ blackhole shred shred secret.txt --passes 7 --yes
 password/key with exit 0/1. Encrypted bundles prompt for the password
 on their own; `--kdf light|hard|paranoid` sets how expensive a guess
 is (1 GiB x 8 by default); `--generate` makes a strong password for
-you; `--no-password` packs plain with no encryption.
+you; `--keyfile PATH` adds a second factor (the bundle then needs the
+password and that file both); `--no-password` packs plain with no
+encryption.
 
 ```bash
 blackhole bundle create ./photos ./photos.bhb --generate
+blackhole bundle create ./photos ./photos.bhb --keyfile ~/bh-photos.key
 blackhole bundle extract ./photos.bhb ./restored
 blackhole bundle list ./photos.bhb
 blackhole bundle verify ./photos.bhb; echo $?

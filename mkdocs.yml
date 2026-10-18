@@ -42,6 +42,7 @@ nav:
   - Vault: vault.md
   - Shredding files: shred.md
   - Bundles (.bhb): bundle.md
+  - Compared to age and 7-Zip: comparison.md
   - Command reference: cli.md
   - Everyday recipes: recipes.md
   - Security notes: security.md
