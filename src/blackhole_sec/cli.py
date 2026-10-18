@@ -1206,4 +1206,11 @@ def upgrade_cmd(check):
         lines = (res.stderr or res.stdout or "").strip().splitlines()
         detail = lines[-1] if lines else f"exit {res.returncode}"
         raise click.ClickException(f"pip failed: {detail}")
-    console.print(f"[green]upgraded to {latest}[/] (open a new shell if the old version still shows)")
+    now = _installed_version()
+    if now != current:
+        console.print(f"[green]upgraded to {now}[/] (open a new shell if the old version still shows)")
+    else:
+        console.print(
+            "[yellow]pip had nothing new to install[/] - PyPI can take a minute to "
+            "catch up after a release; run this again shortly"
+        )

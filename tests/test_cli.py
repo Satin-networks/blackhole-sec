@@ -139,9 +139,28 @@ def test_upgrade_runs_pip(monkeypatch):
     from blackhole_sec import cli
 
     calls = []
+    versions = iter(["0.1.0", "0.1.1"])
 
     def fake_run(cmd, **kwargs):
         calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0)
+
+    monkeypatch.setattr(cli, "_installed_version", lambda: next(versions))
+    monkeypatch.setattr(cli, "_latest_pypi_version", lambda timeout=10: "0.1.1")
+    monkeypatch.setattr(cli.subprocess, "run", fake_run)
+    r = runner.invoke(main, ["upgrade"])
+    assert r.exit_code == 0, r.output
+    assert calls and calls[0][-2:] == ["--upgrade", "blackhole-sec"]
+    assert "upgraded to 0.1.1" in r.output
+
+
+def test_upgrade_reports_pip_noop(monkeypatch):
+    """pip can exit 0 without installing anything; don't claim otherwise."""
+    import subprocess
+
+    from blackhole_sec import cli
+
+    def fake_run(cmd, **kwargs):
         return subprocess.CompletedProcess(cmd, 0)
 
     monkeypatch.setattr(cli, "_installed_version", lambda: "0.1.0")
@@ -149,7 +168,8 @@ def test_upgrade_runs_pip(monkeypatch):
     monkeypatch.setattr(cli.subprocess, "run", fake_run)
     r = runner.invoke(main, ["upgrade"])
     assert r.exit_code == 0, r.output
-    assert calls and calls[0][-2:] == ["--upgrade", "blackhole-sec"]
+    assert "nothing new to install" in r.output
+    assert "upgraded to" not in r.output
 
 
 def test_upgrade_never_downgrades(monkeypatch):
