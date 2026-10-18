@@ -483,3 +483,89 @@ def test_bundle_create_kdf_preset_flag(tmp_path, monkeypatch):
     info = bundle_info(bhb)
     assert (info["t"], info["m"], info["p"]) == (3, 64 * 1024, 4)
     assert "64 MiB x 3 passes" in r.output
+
+
+def test_vault_init_set_get_roundtrip(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    db = tmp_path / "v.db"
+    answers = iter(["correct-horse-battery", "correct-horse-battery"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["vault", "init", "--vault", str(db), "--kdf", "light"])
+    assert r.exit_code == 0, r.output
+    assert "vault created" in r.output
+
+    answers = iter(["correct-horse-battery", "entry-pass-1"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["vault", "set", "github", "--username", "alice",
+                             "--vault", str(db)], input="\n")
+    assert r.exit_code == 0, r.output
+    assert "saved" in r.output
+
+    answers = iter(["correct-horse-battery"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["vault", "get", "github", "--show", "--vault", str(db)])
+    assert r.exit_code == 0, r.output
+    assert "entry-pass-1" in r.output
+
+
+def test_vault_init_weak_master_warns_and_can_decline(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    db = tmp_path / "v.db"
+    answers = iter(["weak", "correct-horse-battery", "correct-horse-battery"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["vault", "init", "--vault", str(db), "--kdf", "light"], input="n\n")
+    assert r.exit_code == 0, r.output
+    assert "weak master" in r.output
+    assert "vault created" in r.output
+    assert db.exists()
+
+
+def test_vault_init_weak_master_accepted_with_confirm(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    db = tmp_path / "v.db"
+    answers = iter(["weak", "weak"])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["vault", "init", "--vault", str(db), "--kdf", "light"], input="y\n")
+    assert r.exit_code == 0, r.output
+    assert "vault created" in r.output
+
+
+def test_vault_init_generates_master_on_enter(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+
+    db = tmp_path / "v.db"
+    monkeypatch.setattr(cli, "_master", lambda prompt="": "")
+    r = runner.invoke(main, ["vault", "init", "--vault", str(db), "--kdf", "light"])
+    assert r.exit_code == 0, r.output
+    assert "generated master" in r.output
+    assert db.exists()
+
+
+def test_vault_init_existing_points_at_passwd(tmp_path):
+    from blackhole_sec.vault.store import Vault
+
+    db = tmp_path / "v.db"
+    Vault.create(db, "some-strong-master-1!", preset="light")
+    r = runner.invoke(main, ["vault", "init", "--vault", str(db)])
+    assert r.exit_code != 0
+    assert "passwd" in r.output
+
+
+def test_vault_set_generates_on_enter(tmp_path, monkeypatch):
+    from blackhole_sec import cli
+    from blackhole_sec.vault.store import Vault
+
+    db = tmp_path / "v.db"
+    Vault.create(db, "some-strong-master-1!", preset="light")
+    answers = iter(["some-strong-master-1!", ""])
+    monkeypatch.setattr(cli, "_master", lambda prompt="": next(answers))
+    r = runner.invoke(main, ["vault", "set", "github", "--vault", str(db)], input="\n\n")
+    assert r.exit_code == 0, r.output
+    assert "generated secret" in r.output
+    v = Vault(db)
+    v.unlock("some-strong-master-1!")
+    e = v.get("github")
+    assert e is not None and len(e.password) == 20

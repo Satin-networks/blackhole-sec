@@ -94,6 +94,31 @@ def _master(prompt: str = "Master password: ") -> str:
     return getpass.getpass(prompt)
 
 
+def _ask_new_master() -> str:
+    """Prompt for a new master. Enter generates one; weak ones need a confirm."""
+    while True:
+        m1 = _master("New master password (or press Enter to generate one): ")
+        if not m1:
+            m1 = generate_passphrase(6)
+            console.print("[green]generated master password[/] [dim](shown once, write it down)[/]")
+            console.print(f"  {m1}", markup=False, highlight=False)
+            console.print("[yellow]nothing can recover it if you lose it[/]")
+            return m1
+        if password_problems(m1) and not _keep_weak_master(m1):
+            continue
+        m2 = _master("Repeat: ")
+        if m1 != m2:
+            console.print("[yellow]those did not match, try again[/]")
+            continue
+        return m1
+
+
+def _keep_weak_master(master: str) -> bool:
+    console.print(f"[yellow]weak master:[/] {'; '.join(password_problems(master))}")
+    console.print("[dim]a stolen vault file is only as strong as this password[/]")
+    return click.confirm("Use it anyway?", default=False)
+
+
 def _open_vault(path: str) -> Vault:
     p = Path(path).expanduser()
     if not p.exists():
@@ -311,15 +336,16 @@ def check_cmd(urls, file_, as_json, as_csv, explain, threshold):
     epilog="""\b
 Examples:
   blackhole vault init
-  blackhole vault set github --username alice --generate 24
+  blackhole vault set github --username alice
   blackhole vault get github --show
 """,
 )
 def vault_grp():
     """Password vault on your own disk.
 
-    First run 'blackhole vault init', then 'set'/'get' entries by SERVICE
-    name (e.g. github, wifi, bank). The vault locks after every command.
+    'init' creates it, 'set'/'get' store and fetch secrets by SERVICE name
+    (github, wifi, bank...). Type your own passwords or press Enter to have
+    one generated. The vault locks after every command.
     """
 
 
@@ -327,8 +353,9 @@ def vault_grp():
     "init",
     context_settings=HELP_NAMES,
     epilog="""\b
-Example:
-  blackhole vault init --vault ~/.blackhole/vault.db
+Examples:
+  blackhole vault init
+  blackhole vault init --kdf paranoid
 """,
 )
 @click.option(
@@ -338,20 +365,27 @@ Example:
     metavar="PATH",
     help="Where to create the vault file (created chmod 0600).",
 )
-def vault_init(vault):
-    """Create a new empty vault. Asks for the master password twice."""
+@click.option(
+    "--kdf",
+    "kdf_preset",
+    type=click.Choice(["light", "hard", "paranoid"]),
+    default="hard",
+    show_default=True,
+    help="Argon2id work factor for this vault. 'light' opens faster on old machines.",
+)
+def vault_init(vault, kdf_preset):
+    """Create a new empty vault. Type a master password, or press Enter to generate one."""
     p = Path(vault).expanduser()
     if p.exists():
-        raise click.ClickException(f"vault already exists at {p} (delete it or pick --vault PATH)")
-    m1 = _master("New master password: ")
-    m2 = _master("Confirm: ")
-    if m1 != m2:
-        raise click.ClickException("passwords differ, try again")
-    if not m1:
-        raise click.ClickException("empty master password, try again")
+        raise click.ClickException(
+            f"a vault already exists at {p}; use 'blackhole vault passwd' to change its "
+            f"master, or pick another spot with --vault PATH"
+        )
+    m = _ask_new_master()
     with _fs(f"could not create vault {p}"):
-        Vault.create(p, m1)
+        Vault.create(p, m, preset=kdf_preset)
     console.print(f"[green]vault created[/] {p} (0600, argon2id + aes-gcm)")
+    console.print("[dim]next: blackhole vault set github --username YOU[/]")
 
 
 @vault_grp.command(
@@ -370,42 +404,45 @@ Examples:
 @click.option(
     "--generate",
     type=click.IntRange(8, 128),
-    default=0,
+    default=None,
     metavar="LEN",
     help="Generate a random password of LEN chars (8-128) instead of prompting.",
 )
 @click.option(
     "--passphrase",
     type=click.IntRange(3, 10),
-    default=0,
+    default=None,
     metavar="WORDS",
     help="Generate a passphrase of WORDS words (3-10) instead of prompting.",
 )
 def vault_set(service, vault, username, generate, passphrase):
     """Save (or overwrite) the entry for SERVICE.
 
-    Without --generate/--passphrase you are prompted once for the entry
-    password (hidden input).
+    Type the password at the hidden prompt, or just press Enter and one
+    is generated for you.
     """
     if generate and passphrase:
         raise click.UsageError("use either --generate or --passphrase, not both")
     v = _open_vault(vault)
+    generated = False
     if generate:
         pw = generate_password(generate)
+        generated = True
     elif passphrase:
         pw = generate_passphrase(passphrase)
+        generated = True
     else:
-        pw = _master("Entry password: ")
+        pw = _master(f"Password for '{service}' (or press Enter to generate one): ")
         if not pw:
-            v.lock()
-            raise click.ClickException("empty password, rerun with --generate LEN to make one")
+            pw = generate_password(20)
+            generated = True
     if not username:
         username = click.prompt("Username", default="")
     notes = click.prompt("Notes (optional)", default="")
     with _fs(f"could not save entry in {v.path}"):
         v.set(service, username, pw, notes)
-    if generate or passphrase:
-        console.print(f"[green]saved[/] {service}  generated secret: {pw}", markup=False, highlight=False)
+    if generated:
+        console.print(f"[green]saved[/] {service}  generated secret (shown once): {pw}", markup=False, highlight=False)
     else:
         console.print(f"[green]saved[/] {service}")
     v.lock()
@@ -583,17 +620,10 @@ Example:
 def vault_passwd(vault):
     """Change the master password. Every entry is re-encrypted under the new one."""
     v = _open_vault(vault)
-    m1 = _master("New master password: ")
-    m2 = _master("Confirm: ")
-    if m1 != m2:
-        v.lock()
-        raise click.ClickException("passwords differ, try again")
-    if not m1:
-        v.lock()
-        raise click.ClickException("empty master password, try again")
+    m = _ask_new_master()
     with _fs(f"could not update vault {v.path}"):
-        v.change_master(m1)
-    console.print("[green]master password changed[/]")
+        v.change_master(m)
+    console.print("[green]master password changed[/] [dim](entries re-encrypted, kdf at the current default)[/]")
     v.lock()
 
 
